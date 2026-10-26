@@ -1,0 +1,500 @@
+import { useState, useRef, useEffect } from 'react';
+import { ConfigFieldInput } from '@canvas/components/settings/ConfigFieldInput';
+import { DataTreeViewer } from '@canvas/components/settings/DataTreeViewer';
+import { FieldShell } from '@canvas/components/settings/FieldShell';
+import { TriggerSettings } from '@canvas/components/settings/TriggerSettings';
+import { Icon } from '@canvas/components/ui/Icon';
+import { nodeAppearance } from '@canvas/lib/nodeStyles';
+import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
+import { isSpecialHandle } from '@canvas/lib/handles';
+import { isTelegramTrigger, isTestableTrigger } from '@canvas/lib/triggers';
+import { useBackdropClose } from '@canvas/lib/useBackdropClose';
+
+export function NodeSettingsPanel() {
+    const panel = useWorkflowStore((state) => state.panel);
+
+    if (panel?.type !== 'node') {
+        return null;
+    }
+
+    return <NodeStudio key={panel.id} nodeId={panel.id} />;
+}
+
+function NodeStudio({ nodeId }: { nodeId: string }) {
+    const [mobileTab, setMobileTab] = useState<'input' | 'parameters' | 'output'>('parameters');
+
+    const [leftWidth, setLeftWidth] = useState(380);
+    const [rightWidth, setRightWidth] = useState(380);
+    const [activeHandle, setActiveHandle] = useState<'left' | 'right' | null>(null);
+
+    const isDraggingLeft = useRef(false);
+    const isDraggingRight = useRef(false);
+    const isFullWorkflowRunning = useWorkflowStore((state) => state.isRunning);
+    const dragStartX = useRef(0);
+    const dragStartWidth = useRef(0);
+
+    const node = useWorkflowStore((state) => state.nodes.find((item) => item.id === nodeId));
+    const allNodes = useWorkflowStore((state) => state.nodes);
+    const edges = useWorkflowStore((state) => state.edges);
+    const definitions = useWorkflowStore((state) => state.definitions);
+    const updateNode = useWorkflowStore((state) => state.updateNode);
+    const closePanel = useWorkflowStore((state) => state.closePanel);
+    const executeSingleNode = useWorkflowStore((state) => state.executeSingleNode);
+    const cancelWorkflow = useWorkflowStore((state) => state.cancelWorkflow);
+    const runningNodeId = useWorkflowStore((state) => state.runningNodeId);
+    const ids = useWorkflowStore((state) => state.ids);
+    const lastRun = useWorkflowStore((state) => state.lastRun);
+    const addToast = useWorkflowStore((state) => state.addToast);
+    const backdrop = useBackdropClose(closePanel);
+    const isManualTrigger = allNodes.some((n) => isTestableTrigger(n.data.nodeType));
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (isDraggingLeft.current) {
+                const deltaX = e.clientX - dragStartX.current;
+                const newWidth = Math.max(280, Math.min(650, dragStartWidth.current + deltaX));
+                setLeftWidth(newWidth);
+            } else if (isDraggingRight.current) {
+                const deltaX = dragStartX.current - e.clientX;
+                const newWidth = Math.max(260, Math.min(650, dragStartWidth.current + deltaX));
+                setRightWidth(newWidth);
+            }
+        };
+
+        const handleMouseUp = () => {
+            isDraggingLeft.current = false;
+            isDraggingRight.current = false;
+            setActiveHandle(null);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
+
+    const startLeftResize = (e: React.MouseEvent) => {
+        e.preventDefault();
+        isDraggingLeft.current = true;
+        setActiveHandle('left');
+        dragStartX.current = e.clientX;
+        dragStartWidth.current = leftWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    };
+
+    const startRightResize = (e: React.MouseEvent) => {
+        e.preventDefault();
+        isDraggingRight.current = true;
+        setActiveHandle('right');
+        dragStartX.current = e.clientX;
+        dragStartWidth.current = rightWidth;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    };
+
+    if (!node) {
+        return null;
+    }
+
+    const definition = definitions.find((item) => item.type === node.data.nodeType);
+    const fields = Object.entries(definition?.configSchema ?? {});
+    const { iconName, iconStyle } = nodeAppearance(definition);
+
+    const isTrigger = definition?.category === 'trigger';
+    const canTestNode = isManualTrigger && (!isTrigger || isTelegramTrigger(node.data.nodeType));
+    const activeTab = isTrigger && mobileTab === 'input' ? 'parameters' : mobileTab;
+
+    const isExecuting = runningNodeId === nodeId;
+    const dbId = ids[nodeId] ?? Number(nodeId);
+    const currentNodeRun = lastRun?.node_runs?.find((r) => r.node_id === dbId);
+
+    const isSupplyNode =
+        definition !== undefined
+        && definition.inputs.length === 0
+        && definition.outputs.length > 0
+        && definition.outputs.every(isSpecialHandle);
+
+    const hostIds = isSupplyNode
+        ? edges.filter((edge) => edge.source === nodeId).map((edge) => edge.target)
+        : [nodeId];
+
+    const incomingEdges = edges.filter(
+        (edge) => hostIds.includes(edge.target) && !isSpecialHandle(edge.targetHandle ?? 'main'),
+    );
+    const incomingSourceNodes = incomingEdges
+        .map((edge) => allNodes.find((n) => n.id === edge.source))
+        .filter(Boolean);
+
+    const incomingDataList = incomingSourceNodes.map((sourceNode) => {
+        const sourceDbId = sourceNode ? (ids[sourceNode.id] ?? Number(sourceNode.id)) : null;
+        const sourceRun = lastRun?.node_runs?.find((r) => r.node_id === sourceDbId);
+
+        return {
+            sourceNode,
+            outputData: sourceRun?.output_data ?? null,
+            status: sourceRun?.status ?? null,
+        };
+    });
+
+    const primaryIncomingData = incomingDataList[0]?.outputData ?? undefined;
+
+    const restoreName = () => {
+        if (node.data.label.trim() === '') {
+            updateNode(node.id, { label: definition?.name ?? 'نود' });
+        }
+    };
+
+    const copyOutputJson = () => {
+        if (!currentNodeRun?.output_data) {
+            return;
+        }
+        navigator.clipboard.writeText(JSON.stringify(currentNodeRun.output_data, null, 2));
+        addToast('داده‌های خروجی کپی شدند.', 'success', 2500);
+    };
+
+    const copyErrorText = () => {
+        if (!currentNodeRun?.error) return;
+        navigator.clipboard.writeText(currentNodeRun.error);
+        addToast('متن خطا در کلیپ‌بورد کپی شد.', 'success', 2000);
+    };
+
+    return (
+        <div
+            {...backdrop}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-2 sm:p-5"
+        >
+            <div
+                dir="rtl"
+                onClick={(e) => e.stopPropagation()}
+                className="studio-modal flex h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-3xl border border-line-border bg-surface-raised shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+            >
+                <header
+                    dir="ltr"
+                    className="flex h-16 shrink-0 items-center justify-between border-b border-line-border bg-surface-raised px-4 sm:px-6"
+                >
+                    <div className="flex items-center gap-3 min-w-0">
+                        <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${iconStyle}`}>
+                            <Icon name={iconName} className="size-5" />
+                        </span>
+
+                        <div className="min-w-0">
+                            <input
+                                aria-label="نام نود"
+                                value={node.data.label}
+                                maxLength={100}
+                                autoComplete="off"
+                                dir="ltr"
+                                onChange={(e) => updateNode(node.id, { label: e.target.value })}
+                                onBlur={restoreName}
+                                className="w-48 sm:w-64 rounded-md bg-transparent px-1 text-sm font-bold text-content-main focus:bg-surface-card focus:outline-none focus:ring-2 focus:ring-primary/40 truncate select-text"
+                            />
+                            <p className="px-1 text-[11px] text-content-muted text-left">{definition?.name ?? 'نوع ناشناخته'}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:gap-3" dir="rtl">
+                        <button
+                            type="button"
+                            onClick={closePanel}
+                            aria-label="بستن"
+                            className="flex size-9 items-center justify-center rounded-xl text-content-muted transition hover:bg-line-border hover:text-content-main"
+                        >
+                            <Icon name="x" className="size-5" />
+                        </button>
+
+                        {canTestNode && <span className="h-5 w-px bg-line-border/80" />}
+
+                        {isExecuting ? (
+                            <button
+                                type="button"
+                                onClick={() => void cancelWorkflow()}
+                                className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 text-xs font-bold text-amber-500 shadow-sm transition hover:bg-amber-500/20"
+                            >
+                                <Icon name="player-stop" className="size-4" />
+                                <span className="hidden sm:inline">
+                                    {isFullWorkflowRunning ? 'توقف ورکفلو' : 'توقف مرحله'}
+                                </span>
+                            </button>
+                        ) : (
+                            canTestNode && (
+                                <button
+                                    type="button"
+                                    onClick={() => void executeSingleNode(nodeId)}
+                                    className="flex items-center gap-2 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-500"
+                                >
+                                    <Icon name="player-play" className="size-4" />
+                                    <span className="hidden sm:inline">
+                                        {isTelegramTrigger(node.data.nodeType) ? 'دریافت پیام تستی' : 'تست این مرحله'}
+                                    </span>
+                                </button>
+                            )
+                        )}
+                    </div>
+                </header>
+
+                <div className="flex md:hidden border-b border-line-border bg-surface-card/60 p-1 text-xs font-semibold">
+                    {!isTrigger && (
+                        <button
+                            type="button"
+                            onClick={() => setMobileTab('input')}
+                            className={`flex-1 py-2 text-center rounded-xl transition ${
+                                activeTab === 'input' ? 'bg-surface-raised text-primary shadow-xs' : 'text-content-muted'
+                            }`}
+                        >
+                            ورودی
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setMobileTab('parameters')}
+                        className={`flex-1 py-2 text-center rounded-xl transition ${
+                            activeTab === 'parameters' ? 'bg-surface-raised text-primary shadow-xs' : 'text-content-muted'
+                        }`}
+                    >
+                        تنظیمات
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setMobileTab('output')}
+                        className={`flex-1 py-2 text-center rounded-xl transition ${
+                            activeTab === 'output' ? 'bg-surface-raised text-primary shadow-xs' : 'text-content-muted'
+                        }`}
+                    >
+                        خروجی
+                    </button>
+                </div>
+
+                <div className="flex min-h-0 flex-1 w-full flex-col md:flex-row" dir="ltr">
+                    {!isTrigger && (
+                        <>
+                            <section
+                                style={{ width: window.innerWidth >= 768 ? leftWidth : '100%' }}
+                                className={`flex-col min-h-0 bg-surface-card/40 shrink-0 ${
+                                    activeTab === 'input' ? 'flex' : 'hidden md:flex'
+                                }`}
+                                dir="rtl"
+                            >
+                                <div className="flex items-center justify-between border-b border-line-border px-5 py-3">
+                                    <span className="text-xs font-bold text-content-main flex items-center gap-2">
+                                        <Icon name="brackets" className="size-4 text-primary" />
+                                        داده‌های ورودی (Input)
+                                    </span>
+                                </div>
+
+                                <div className="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 select-text">
+                                    {incomingDataList.length === 0 ? (
+                                        <div className="py-16 text-center text-xs text-content-muted space-y-2">
+                                            <Icon name="link-off" className="mx-auto size-7 opacity-30" />
+                                            <p>نود قبلی به این نود متصل نیست.</p>
+                                        </div>
+                                    ) : (
+                                        incomingDataList.map((item, idx) => (
+                                            <div key={idx} className="space-y-2.5 rounded-2xl border border-line-border/80 bg-surface-raised p-3.5 shadow-xs">
+                                                <div className="flex items-center justify-between border-b border-line-border/60 pb-2">
+                                                    <span className="text-xs font-bold text-content-main truncate">
+                                                        {item.sourceNode?.data.label}
+                                                    </span>
+                                                    {item.status && (
+                                                        <span
+                                                            className={`size-2.5 rounded-full ${
+                                                                item.status === 'success' ? 'bg-emerald-500' : 'bg-primary'
+                                                            }`}
+                                                        />
+                                                    )}
+                                                </div>
+
+                                                {item.outputData ? (
+                                                    <DataTreeViewer data={item.outputData} basePath="input" />
+                                                ) : (
+                                                    <p className="py-4 text-center text-[11px] text-content-muted">
+                                                        داده‌ای از نود قبلی ثبت نشده است.
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </section>
+
+                            <div
+                                onMouseDown={startLeftResize}
+                                className="group/handle relative z-10 hidden w-px shrink-0 cursor-col-resize select-none bg-line-border md:block"
+                            >
+                                <span className="absolute inset-y-0 -inset-x-1.5" />
+                                <span
+                                    className={`pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-full transition-all duration-150 ${
+                                        activeHandle === 'left'
+                                            ? 'w-0.75 bg-primary'
+                                            : 'w-px bg-transparent group-hover/handle:w-0.75 group-hover/handle:bg-primary/60'
+                                    }`}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    <section
+                        className={`flex-1 flex-col min-h-0 min-w-0 bg-surface-raised ${
+                            activeTab === 'parameters' ? 'flex' : 'hidden md:flex'
+                        }`}
+                        dir="rtl"
+                    >
+                        <div className="flex items-center justify-between border-b border-line-border px-6 py-3">
+                            <span className="text-xs font-bold text-content-main flex items-center gap-2">
+                                <Icon name={isTrigger ? 'player-play' : 'settings'} className="size-4 text-primary" />
+                                {isTrigger ? 'تنظیمات شروع‌کننده (Trigger)' : 'تنظیمات نود (Parameters)'}
+                            </span>
+                        </div>
+
+                        <div className="custom-scrollbar flex-1 space-y-5 overflow-y-auto p-4 sm:p-6 select-text">
+                            {isTrigger ? (
+                                <TriggerSettings node={node} definition={definition} />
+                            ) : (
+                                <>
+                                    {definition?.description && (
+                                        <p className="text-xs leading-6 text-content-muted">{definition.description}</p>
+                                    )}
+
+                                    {!definition && (
+                                        <p className="text-xs leading-6 text-primary">نوع این نود دیگر وجود ندارد.</p>
+                                    )}
+
+                                    {definition && fields.length === 0 && (
+                                        <p className="py-12 text-center text-xs text-content-muted">این نود تنظیماتی ندارد.</p>
+                                    )}
+
+                                    {fields.map(([key, field]) => {
+                                        const id = `studio-field-${node.id}-${key}`;
+
+                                        return (
+                                            <FieldShell key={key} id={id} label={field.label ?? key} required={field.required} help={field.help}>
+                                                <ConfigFieldInput
+                                                    id={id}
+                                                    field={field}
+                                                    value={node.data.config[key] ?? field.default ?? null}
+                                                    incomingData={primaryIncomingData}
+                                                    fullConfig={node.data.config}
+                                                    onChange={(value) =>
+                                                        updateNode(node.id, { config: { ...node.data.config, [key]: value } })
+                                                    }
+                                                />
+                                            </FieldShell>
+                                        );
+                                    })}
+                                </>
+                            )}
+                        </div>
+                    </section>
+
+                    <div
+                        onMouseDown={startRightResize}
+                        className="group/handle relative z-10 hidden w-px shrink-0 cursor-col-resize select-none bg-line-border md:block"
+                    >
+                        <span className="absolute inset-y-0 -inset-x-1.5" />
+                        <span
+                            className={`pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 rounded-full transition-all duration-150 ${
+                                activeHandle === 'right'
+                                    ? 'w-0.75 bg-primary'
+                                    : 'w-px bg-transparent group-hover/handle:w-0.75 group-hover/handle:bg-primary/60'
+                            }`}
+                        />
+                    </div>
+
+                    <section
+                        style={{ width: window.innerWidth >= 768 ? rightWidth : '100%' }}
+                        className={`flex-col min-h-0 bg-surface-card/40 shrink-0 ${
+                            activeTab === 'output' ? 'flex' : 'hidden md:flex'
+                        }`}
+                        dir="rtl"
+                    >
+                        <div className="flex items-center justify-between border-b border-line-border px-5 py-3">
+                            <span className="text-xs font-bold text-content-main flex items-center gap-2">
+                                <Icon name="sparkles" className="size-4 text-primary" />
+                                نتیجه خروجی (Output)
+                            </span>
+
+                            {currentNodeRun && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={copyOutputJson}
+                                        title="کپی داده‌های خروجی"
+                                        className="flex items-center gap-1 rounded-md border border-line-border bg-surface-raised px-2 py-0.5 text-[10px] text-content-muted hover:text-content-main transition"
+                                    >
+                                        <Icon name="copy" className="size-3" />
+                                        <span>کپی خروجی</span>
+                                    </button>
+
+                                    {currentNodeRun.duration_ms !== null && (
+                                        <span className="flex items-center gap-1 font-mono text-[11px] text-content-muted" dir="ltr">
+                                            <Icon name="clock" className="size-3" />
+                                            {currentNodeRun.duration_ms} ms
+                                        </span>
+                                    )}
+
+                                    <span
+                                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+                                            currentNodeRun.status === 'success'
+                                                ? 'bg-emerald-500/10 text-emerald-500'
+                                                : 'bg-primary/10 text-primary'
+                                        }`}
+                                    >
+                                        {currentNodeRun.status === 'success' ? 'موفق' : 'خطا'}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 select-text">
+                            {!currentNodeRun ? (
+                                <div className="py-16 text-center text-xs text-content-muted space-y-2">
+                                    <Icon name="clock" className="mx-auto size-7 opacity-30" />
+                                    <p>
+                                        {!isManualTrigger
+                                            ? 'ورکفلو را از طریق ورودی مربوطه (مانند تست گفتگو) اجرا کنید تا خروجی نمایش داده شود.'
+                                            : 'این نود هنوز در تست اجرا نشده است.'}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 text-xs">
+                                    {currentNodeRun.error && (
+                                        <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3.5 text-primary text-xs leading-5 max-h-56 overflow-y-auto space-y-2">
+                                            <div className="flex items-center justify-between border-b border-primary/20 pb-1.5">
+                                                <span className="font-bold text-[11px]">Error Output</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={copyErrorText}
+                                                    className="flex items-center gap-1 text-[10px] text-primary hover:underline transition"
+                                                >
+                                                    <Icon name="copy" className="size-3" />
+                                                    <span>کپی متن خطا</span>
+                                                </button>
+                                            </div>
+                                            <p className="text-start font-mono text-[11px] break-all select-text whitespace-pre-wrap" dir="auto">
+                                                {currentNodeRun.error}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-1.5">
+                                        <pre
+                                            dir="ltr"
+                                            className="custom-scrollbar max-h-96 overflow-auto rounded-2xl border border-line-border bg-surface-card p-4 font-mono text-[11px] leading-5 text-content-main select-text"
+                                        >
+                                            {JSON.stringify(currentNodeRun.output_data, null, 2) ?? 'null'}
+                                        </pre>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    );
+}

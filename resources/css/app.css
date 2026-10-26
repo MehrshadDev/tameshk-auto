@@ -1,0 +1,202 @@
+@import 'tailwindcss';
+
+@source '../../app/**/*.php';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@font-face {
+    font-family: 'Vazirmatn';
+    src: url('../fonts/vazirmatn/Vazirmatn-Variable.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Vazirmatn RD';
+    src: url('../fonts/vazirmatn/Vazirmatn-RD-Variable.woff2') format('woff2');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+    --color-surface-base: #fafafa;
+    --color-surface-raised: #ffffff;
+    --color-surface-card: #ffffff;
+    --color-content-main: #0f172a;
+    --color-content-muted: #64748b;
+    --color-line-border: #e2e8f0;
+    --color-menu: #ffffff;
+    --color-primary: #E21C48;
+    --color-field: #ffffff;
+    color-scheme: light;
+
+    --default-font-family: var(--font-sans);
+}
+
+.dark {
+    --color-surface-base: #0a0a0a;
+    --color-surface-raised: #141414;
+    --color-surface-card: #1c1c1c;
+    --color-content-main: #fafafa;
+    --color-content-muted: #b3b3b3;
+    --color-line-border: #2e2e2e;
+    --color-menu: #141414;
+    --color-primary: #E21C48;
+    --color-field: rgba(250, 250, 250, 0.035);
+    color-scheme: dark;
+}
+
+@theme inline {
+    --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-vazirmatn-rd: 'Vazirmatn RD', ui-sans-serif, system-ui, sans-serif;
+
+    --color-surface-base: var(--color-surface-base);
+    --color-surface-raised: var(--color-surface-raised);
+    --color-surface-card: var(--color-surface-card);
+    --color-content-main: var(--color-content-main);
+    --color-content-muted: var(--color-content-muted);
+    --color-line-border: var(--color-line-border);
+    --color-menu: var(--color-menu);
+    --color-primary: var(--color-primary);
+    --color-field: var(--color-field);
+
+    --animate-scroll-up: scrollUp 25s linear infinite;
+
+    @keyframes scrollUp {
+        from { transform: translateY(0); }
+        to { transform: translateY(-50%); }
+    }
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #dfa7a7;
+    border-radius: 100vh;
+    border: 2px solid #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #020617;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border: 2px solid #020617;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #dfa7a7;
+    border-radius: 100vh;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+    background: #020617;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #334155;
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+.scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #dfa7a7 transparent;
+}
+
+.dark .scrollbar-thin {
+    scrollbar-color: #334155 transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #dfa7a7;
+    border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #334155;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary);
+}
+
+.react-flow {
+    --xy-background-color: var(--color-surface-base);
+    --xy-background-pattern-color: var(--color-line-border);
+    --xy-node-border-radius: 12px;
+    --xy-minimap-background-color: var(--color-surface-raised);
+    --xy-controls-button-background-color: var(--color-surface-raised);
+    --xy-controls-button-background-color-hover: var(--color-surface-card);
+    --xy-controls-button-color: var(--color-content-main);
+    --xy-controls-button-border-color: var(--color-line-border);
+    --xy-edge-stroke-default: var(--color-content-muted);
+    --xy-edge-stroke-width-default: 2;
+    --xy-edge-stroke-selected-default: var(--color-primary);
+}
+
+.react-flow .react-flow__handle {
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--color-surface-card);
+    background: var(--color-content-muted);
+}
+
+.react-flow .react-flow__handle:hover,
+.react-flow .react-flow__handle.connectingfrom {
+    background: var(--color-primary);
+}
