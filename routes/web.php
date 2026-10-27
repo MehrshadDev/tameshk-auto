@@ -2,15 +2,19 @@
 
 use App\Http\Controllers\CredentialController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\OAuth\GoogleOAuthController;
 use App\Http\Controllers\WorkflowController;
 use App\Http\Controllers\WorkflowExecutionController;
 use App\Http\Controllers\WorkflowGraphController;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WorkflowMemoryController;
 use App\Http\Controllers\WorkflowPublishController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
+
+Route::get('/oauth/google/callback', [GoogleOAuthController::class, 'callback'])
+    ->name('oauth.google.callback');
 
 Route::middleware('guest')->group(function () {
     Route::view('/login', 'pages.auth.login')->name('login');
@@ -27,8 +31,13 @@ Route::middleware('auth')
             ->name('workflows.index');
         Route::get('/workflows/{workflow:public_id}', [WorkflowController::class, 'show'])
             ->name('workflows.show');
+
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('ping', fn () => response()->json(['status' => 'ok']))->name('ping');
+
+            Route::get('oauth/google/redirect', [GoogleOAuthController::class, 'redirect'])
+                ->name('oauth.google.redirect');
+
             Route::get('workflows/{workflow}/graph', [WorkflowGraphController::class, 'show'])
                 ->name('workflows.graph');
             Route::put('workflows/{workflow}/graph', [WorkflowGraphController::class, 'update'])
@@ -54,8 +63,10 @@ Route::middleware('auth')
             Route::patch('workflows/{workflow}', [WorkflowController::class, 'rename'])
                 ->middleware('throttle:60,1')
                 ->name('workflows.rename');
+
             Route::apiResource('credentials', CredentialController::class);
-            Route::get('credentials/{credential}/models', [CredentialController::class, 'models'])->name('credentials.models');
+            Route::get('credentials/{credential}/models', [CredentialController::class, 'models'])
+                ->name('credentials.models');
         });
     });
 

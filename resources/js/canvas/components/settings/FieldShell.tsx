@@ -1,24 +1,24 @@
 import type { ReactNode } from 'react';
 
 type FieldShellProps = {
-    id: string;
+    id?: string;
     label: string;
     required?: boolean;
     help?: string;
     children: ReactNode;
 };
 
-export function FieldShell({ id, label, required, help, children }: FieldShellProps) {
+export function FieldShell({ label, required, help, children }: FieldShellProps) {
     return (
-        <div>
-            <label htmlFor={id} className="mb-1.5 flex items-center gap-1 text-xs font-medium text-content-main">
+        <div className="space-y-1.5">
+            <span className="flex items-center gap-1 text-xs font-semibold text-content-main select-none w-fit cursor-default">
                 {label}
                 {required && <span className="text-primary">*</span>}
-            </label>
+            </span>
 
             {children}
 
-            {help && <p className="mt-1.5 text-xs leading-5 text-content-muted">{help}</p>}
+            {help && <p className="text-[11px] leading-5 text-content-muted">{help}</p>}
         </div>
     );
 }

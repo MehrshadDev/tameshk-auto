@@ -22,6 +22,10 @@ final class NodeConfigValidator
                 continue;
             }
 
+            if (! $this->isFieldVisible($field, $config)) {
+                continue;
+            }
+
             if (! $complete && ($value === '' || $value === [])) {
                 continue;
             }
@@ -42,6 +46,10 @@ final class NodeConfigValidator
                 continue;
             }
 
+            if (! $this->isFieldVisible($field, $config)) {
+                continue;
+            }
+
             $value = $config[$key] ?? $field['default'] ?? null;
 
             $isEmpty = $value === null
@@ -54,6 +62,24 @@ final class NodeConfigValidator
         }
 
         return $errors;
+    }
+
+    private function isFieldVisible(array $field, array $config): bool
+    {
+        if (empty($field['depends_on']) || ! is_array($field['depends_on'])) {
+            return true;
+        }
+
+        foreach ($field['depends_on'] as $depKey => $depValues) {
+            $actual = $config[$depKey] ?? null;
+            $allowed = is_array($depValues) ? $depValues : [$depValues];
+
+            if (! in_array($actual, $allowed, false)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function check(array $field, mixed $value, Collection $credentials, bool $complete): ?string

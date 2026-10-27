@@ -31,4 +31,7 @@ return [
         'base_url' => env('TELEGRAM_BASE_URL', 'https://api.telegram.org')
     ],
 
+    'google' => [
+        'redirect_uri' => env('SERVICES_GOOGLE_REDIRECT_URI'),
+    ],
 ];

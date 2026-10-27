@@ -7,8 +7,9 @@ import { Icon } from '@canvas/components/ui/Icon';
 import { nodeAppearance } from '@canvas/lib/nodeStyles';
 import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
 import { isSpecialHandle } from '@canvas/lib/handles';
-import { isTelegramTrigger, isTestableTrigger } from '@canvas/lib/triggers';
+import { isTelegramTrigger, isTestableTrigger, isGmailTrigger } from '@canvas/lib/triggers';
 import { useBackdropClose } from '@canvas/lib/useBackdropClose';
+import type { ConfigField } from '@canvas/types/graph';
 
 export function NodeSettingsPanel() {
     const panel = useWorkflowStore((state) => state.panel);
@@ -22,6 +23,8 @@ export function NodeSettingsPanel() {
 
 function NodeStudio({ nodeId }: { nodeId: string }) {
     const [mobileTab, setMobileTab] = useState<'input' | 'parameters' | 'output'>('parameters');
+    const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+    const optionsContainerRef = useRef<HTMLDivElement>(null);
 
     const [leftWidth, setLeftWidth] = useState(380);
     const [rightWidth, setRightWidth] = useState(380);
@@ -47,6 +50,28 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     const addToast = useWorkflowStore((state) => state.addToast);
     const backdrop = useBackdropClose(closePanel);
     const isManualTrigger = allNodes.some((n) => isTestableTrigger(n.data.nodeType));
+
+    useEffect(() => {
+        if (!optionsMenuOpen) return;
+
+        const handleOutsideClick = (e: MouseEvent) => {
+            if (optionsContainerRef.current && !optionsContainerRef.current.contains(e.target as Node)) {
+                setOptionsMenuOpen(false);
+            }
+        };
+
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOptionsMenuOpen(false);
+        };
+
+        document.addEventListener('mousedown', handleOutsideClick);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleOutsideClick);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [optionsMenuOpen]);
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
@@ -103,11 +128,10 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     }
 
     const definition = definitions.find((item) => item.type === node.data.nodeType);
-    const fields = Object.entries(definition?.configSchema ?? {});
     const { iconName, iconStyle } = nodeAppearance(definition);
 
     const isTrigger = definition?.category === 'trigger';
-    const canTestNode = isManualTrigger && (!isTrigger || isTelegramTrigger(node.data.nodeType));
+    const canTestNode = isManualTrigger && (!isTrigger || isTelegramTrigger(node.data.nodeType) || isGmailTrigger(node.data.nodeType));
     const activeTab = isTrigger && mobileTab === 'input' ? 'parameters' : mobileTab;
 
     const isExecuting = runningNodeId === nodeId;
@@ -162,6 +186,41 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
         if (!currentNodeRun?.error) return;
         navigator.clipboard.writeText(currentNodeRun.error);
         addToast('متن خطا در کلیپ‌بورد کپی شد.', 'success', 2000);
+    };
+
+    const isFieldVisible = (field: ConfigField, config: Record<string, unknown>) => {
+        if (!field.depends_on) return true;
+        for (const [depKey, depValue] of Object.entries(field.depends_on)) {
+            const actual = config[depKey];
+            const allowed = Array.isArray(depValue) ? depValue : [depValue];
+            if (!allowed.includes(String(actual ?? ''))) return false;
+        }
+        return true;
+    };
+
+    const allSchemaFields = Object.entries(definition?.configSchema ?? {});
+    const visibleFields = allSchemaFields.filter(([, field]) => isFieldVisible(field, node.data.config));
+
+    const primaryFields = visibleFields.filter(([, field]) => !field.advanced);
+    const availableAdvancedFields = visibleFields.filter(([, field]) => field.advanced);
+
+    const activeAdvancedFields = availableAdvancedFields.filter(([key]) => node.data.config[key] !== undefined && node.data.config[key] !== null);
+    const inactiveAdvancedFields = availableAdvancedFields.filter(([key]) => node.data.config[key] === undefined || node.data.config[key] === null);
+
+    const addAdvancedField = (key: string, field: ConfigField) => {
+        updateNode(node.id, {
+            config: {
+                ...node.data.config,
+                [key]: field.default ?? '',
+            },
+        });
+        setOptionsMenuOpen(false);
+    };
+
+    const removeAdvancedField = (key: string) => {
+        const nextConfig = { ...node.data.config };
+        delete nextConfig[key];
+        updateNode(node.id, { config: nextConfig });
     };
 
     return (
@@ -230,7 +289,11 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                 >
                                     <Icon name="player-play" className="size-4" />
                                     <span className="hidden sm:inline">
-                                        {isTelegramTrigger(node.data.nodeType) ? 'دریافت پیام تستی' : 'تست این مرحله'}
+                                        {isTelegramTrigger(node.data.nodeType)
+                                            ? 'دریافت پیام تستی'
+                                            : isGmailTrigger(node.data.nodeType)
+                                                ? 'بررسی و دریافت ایمیل تستی'
+                                                : 'تست این مرحله'}
                                     </span>
                                 </button>
                             )
@@ -364,11 +427,11 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                         <p className="text-xs leading-6 text-primary">نوع این نود دیگر وجود ندارد.</p>
                                     )}
 
-                                    {definition && fields.length === 0 && (
+                                    {definition && primaryFields.length === 0 && (
                                         <p className="py-12 text-center text-xs text-content-muted">این نود تنظیماتی ندارد.</p>
                                     )}
 
-                                    {fields.map(([key, field]) => {
+                                    {primaryFields.map(([key, field]) => {
                                         const id = `studio-field-${node.id}-${key}`;
 
                                         return (
@@ -386,6 +449,70 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                             </FieldShell>
                                         );
                                     })}
+
+                                    {activeAdvancedFields.map(([key, field]) => {
+                                        const id = `studio-field-${node.id}-${key}`;
+
+                                        return (
+                                            <div key={key} className="relative rounded-2xl border border-line-border/70 bg-surface-card/60 p-4 pt-3">
+                                                <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-line-border/50">
+                                                    <span className="text-xs font-bold text-content-main">
+                                                        {field.label ?? key}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeAdvancedField(key)}
+                                                        title="حذف این گزینه"
+                                                        className="flex size-6 items-center justify-center rounded-lg text-content-muted transition hover:bg-primary/10 hover:text-primary"
+                                                    >
+                                                        <Icon name="x" className="size-3.5" />
+                                                    </button>
+                                                </div>
+
+                                                <ConfigFieldInput
+                                                    id={id}
+                                                    field={field}
+                                                    value={node.data.config[key] ?? field.default ?? null}
+                                                    incomingData={primaryIncomingData}
+                                                    fullConfig={node.data.config}
+                                                    onChange={(value) =>
+                                                        updateNode(node.id, { config: { ...node.data.config, [key]: value } })
+                                                    }
+                                                />
+                                            </div>
+                                        );
+                                    })}
+
+                                    {inactiveAdvancedFields.length > 0 && (
+                                        <div className="pt-2">
+                                            <div ref={optionsContainerRef} className="relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOptionsMenuOpen((prev) => !prev)}
+                                                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line-border bg-surface-card py-2.5 text-xs font-semibold text-content-main hover:bg-line-border/40 transition shadow-xs"
+                                                >
+                                                    <Icon name="plus" className="size-3.5" />
+                                                    <span>افزودن گزینه (گزینه‌های بیشتر)</span>
+                                                </button>
+
+                                                {optionsMenuOpen && (
+                                                    <div className="absolute right-0 bottom-full mb-1.5 w-full rounded-2xl border border-line-border bg-surface-raised p-1.5 shadow-xl backdrop-blur-md z-30 space-y-0.5">
+                                                        {inactiveAdvancedFields.map(([key, field]) => (
+                                                            <button
+                                                                key={key}
+                                                                type="button"
+                                                                onClick={() => addAdvancedField(key, field)}
+                                                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-start text-xs font-medium text-content-main hover:bg-primary/10 hover:text-primary transition"
+                                                            >
+                                                                <Icon name="plus" className="size-3.5 text-primary" />
+                                                                <span>{field.label ?? key}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>

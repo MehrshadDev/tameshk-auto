@@ -45,6 +45,10 @@ export function CredentialSelect({ id, credentialType, value, onChange }: Creden
         onChange(newItem.id);
     };
 
+    const handleUpdated = (updatedItem: CredentialItem) => {
+        setItems((prev) => (prev ? prev.map((i) => (i.id === updatedItem.id ? updatedItem : i)) : [updatedItem]));
+    };
+
     const handleDeleted = (deletedId: number) => {
         setItems((prev) => (prev ? prev.filter((i) => i.id !== deletedId) : []));
         if (value === deletedId) onChange(null);
@@ -80,6 +84,7 @@ export function CredentialSelect({ id, credentialType, value, onChange }: Creden
                     definition={definition}
                     existingItems={items}
                     onCreated={handleCreated}
+                    onUpdated={handleUpdated}
                     onDeleted={handleDeleted}
                 />
             )}

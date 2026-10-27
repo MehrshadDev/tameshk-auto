@@ -14,12 +14,30 @@ type CredentialModalProps = {
     onClose: () => void;
     definition: CredentialDefinition;
     onCreated: (item: CredentialItem) => void;
+    onUpdated?: (item: CredentialItem) => void;
     onDeleted?: (id: number) => void;
     existingItems: CredentialItem[];
 };
 
 const baseInputClass =
     'w-full rounded-xl border border-line-border bg-field px-3.5 py-2.5 text-xs text-content-main transition focus:border-primary focus:bg-surface-card focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs';
+
+const getDefaultName = (def: CredentialDefinition): string => {
+    switch (def.key) {
+        case 'gmail':
+            return 'Gmail account';
+        case 'telegram':
+            return 'Telegram account';
+        case 'gemini':
+            return 'Gemini account';
+        case 'http_bearer':
+            return 'Bearer token';
+        case 'basic_auth':
+            return 'Basic auth';
+        default:
+            return `${def.name} account`;
+    }
+};
 
 const initialFormData = (schema: Record<string, ConfigField>): Record<string, string> =>
     Object.fromEntries(
@@ -29,19 +47,12 @@ const initialFormData = (schema: Record<string, ConfigField>): Record<string, st
         ]),
     );
 
-function FieldLabel({ label }: { label: string }) {
-    return (
-        <label className="text-xs font-semibold text-content-main">
-            {label}
-        </label>
-    );
-}
-
 export function CredentialModal({
                                     isOpen,
                                     onClose,
                                     definition,
                                     onCreated,
+                                    onUpdated,
                                     onDeleted,
                                     existingItems,
                                 }: CredentialModalProps) {
@@ -59,7 +70,7 @@ export function CredentialModal({
     useEffect(() => {
         if (isOpen) {
             setView('create');
-            setName('');
+            setName(getDefaultName(definition));
             setFormData(initialFormData(definition.schema));
             setErrorMessage(null);
             setPendingDelete(null);
@@ -70,12 +81,37 @@ export function CredentialModal({
         setFormData((prev) => ({ ...prev, [key]: value }));
     };
 
+    const openGoogleOAuthPopup = (credentialId: number) => {
+        window.open(
+            `/app/api/oauth/google/redirect?credential_id=${credentialId}`,
+            'google_oauth',
+            'width=550,height=650',
+        );
+
+        const listener = async (event: MessageEvent) => {
+            if (event.data?.type === 'GMAIL_OAUTH_RESULT') {
+                window.removeEventListener('message', listener);
+                if (event.data.status === 'success') {
+                    addToast(event.data.message, 'success', 4000);
+                    try {
+                        const res = await request<{ data: CredentialItem }>(`/app/api/credentials/${credentialId}`);
+                        onUpdated?.(res.data);
+                    } catch {}
+                } else {
+                    addToast(event.data.message, 'error', 5000);
+                }
+            }
+        };
+
+        window.addEventListener('message', listener);
+    };
+
     const handleCreate = async (e: React.SyntheticEvent) => {
         e.preventDefault();
         setErrorMessage(null);
 
         if (!name.trim()) {
-            setErrorMessage('نام اعتبارنامه الزامی است.');
+            setErrorMessage('نام حساب الزامی است.');
             return;
         }
 
@@ -100,6 +136,11 @@ export function CredentialModal({
 
             addToast('اعتبارنامه با موفقیت ذخیره شد.', 'success', 2500);
             onCreated(res.data);
+
+            if (definition.key === 'gmail') {
+                openGoogleOAuthPopup(res.data.id);
+            }
+
             onClose();
         } catch (error: any) {
             setErrorMessage(error?.message ?? 'خطا در اعتبارسنجی و ذخیره رخ داد.');
@@ -117,11 +158,11 @@ export function CredentialModal({
 
         try {
             await request(`/app/api/credentials/${pendingDelete.id}`, { method: 'DELETE' });
-            addToast('اعتبارنامه حذف شد.', 'info', 2500);
+            addToast('حساب حذف شد.', 'info', 2500);
             onDeleted?.(pendingDelete.id);
             setPendingDelete(null);
         } catch {
-            addToast('خطا در حذف اعتبارنامه رخ داد.', 'error');
+            addToast('خطا در حذف رخ داد.', 'error');
         } finally {
             setIsDeleting(false);
         }
@@ -165,9 +206,9 @@ export function CredentialModal({
                             name={inputName}
                             rows={3}
                             value={value}
+                            dir="auto"
                             maxLength={10000}
                             placeholder={field.placeholder}
-                            dir={field.type === 'code' ? 'ltr' : undefined}
                             onChange={(e) => updateField(key, e.target.value)}
                             className={`${baseInputClass} resize-none ${field.type === 'code' ? 'font-mono' : ''}`}
                         />
@@ -196,6 +237,7 @@ export function CredentialModal({
                         <input
                             type="text"
                             name={inputName}
+                            dir="auto"
                             autoComplete="off"
                             spellCheck={false}
                             value={value}
@@ -210,9 +252,10 @@ export function CredentialModal({
 
         return (
             <div key={key} className="space-y-1.5">
-                <FieldLabel label={label} />
+                <label className="text-xs font-semibold text-content-main">
+                    {label}
+                </label>
                 {control}
-                {field.help && <p className="text-[11px] text-content-muted">{field.help}</p>}
             </div>
         );
     };
@@ -224,7 +267,7 @@ export function CredentialModal({
                 onClose={() => {
                     if (!pendingDelete) onClose();
                 }}
-                maxWidth="max-w-lg"
+                maxWidth="max-w-xl"
             >
                 <div className="p-6" dir="rtl">
                     <div className="flex items-center justify-between border-b border-line-border/60 pb-4 mb-5">
@@ -233,33 +276,33 @@ export function CredentialModal({
                                 <Icon name="key" className="size-5" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-content-main">مدیریت {definition.name}</h3>
+                                <h3 className="text-sm font-bold text-content-main">{definition.name}</h3>
                                 <p className="text-[11px] text-content-muted mt-0.5">{definition.description}</p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 bg-surface-card p-1 rounded-xl border border-line-border">
+                        <div className="flex items-center gap-1 bg-surface-card p-1 rounded-xl border border-line-border">
                             <button
                                 type="button"
                                 onClick={() => setView('create')}
-                                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                                className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
                                     view === 'create'
                                         ? 'bg-primary text-white shadow-xs'
                                         : 'text-content-muted hover:text-content-main'
                                 }`}
                             >
-                                کلید جدید
+                                حساب جدید
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setView('list')}
-                                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                                className={`rounded-lg px-3 py-1 text-xs font-semibold transition ${
                                     view === 'list'
                                         ? 'bg-primary text-white shadow-xs'
                                         : 'text-content-muted hover:text-content-main'
                                 }`}
                             >
-                                کلیدهای من ({existingItems.length})
+                                حساب‌های من ({existingItems.length})
                             </button>
                         </div>
                     </div>
@@ -273,14 +316,15 @@ export function CredentialModal({
                     {view === 'create' ? (
                         <form onSubmit={handleCreate} autoComplete="off" className="space-y-4">
                             <div className="space-y-1.5">
-                                <FieldLabel label="نام حساب یا کلید" />
+                                <label className="text-xs font-semibold text-content-main">
+                                    نام حساب
+                                </label>
                                 <input
                                     autoFocus
                                     type="text"
+                                    dir="auto"
                                     name="credential_name_field"
                                     autoComplete="off"
-                                    data-lpignore="true"
-                                    data-1p-ignore="true"
                                     spellCheck={false}
                                     value={name}
                                     maxLength={100}
@@ -291,6 +335,34 @@ export function CredentialModal({
 
                             {Object.entries(definition.schema).map(([key, field]) =>
                                 renderField(key, field),
+                            )}
+
+                            {definition.key === 'gmail' && (
+                                <div className="space-y-2 rounded-xl border border-line-border/70 bg-surface-card p-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-semibold text-content-main">Redirect URI</span>
+                                        <span className="text-[10px] text-content-muted">برای تنظیم در Google Cloud Console</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            readOnly
+                                            dir="ltr"
+                                            value={`${window.location.origin}/oauth/google/callback`}
+                                            onFocus={(e) => e.currentTarget.select()}
+                                            className="w-full rounded-lg border border-line-border bg-field px-3 py-1.5 font-mono text-xs text-content-main select-all focus:outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(`${window.location.origin}/oauth/google/callback`);
+                                                addToast('کپی شد.', 'success', 2000);
+                                            }}
+                                            className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line-border bg-surface-raised text-content-muted hover:border-primary hover:text-primary transition"
+                                        >
+                                            <Icon name="copy" className="size-3.5" />
+                                        </button>
+                                    </div>
+                                </div>
                             )}
 
                             <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-line-border/60">
@@ -312,32 +384,66 @@ export function CredentialModal({
                             </div>
                         </form>
                     ) : (
-                        <div className="space-y-2.5 max-h-72 overflow-y-auto custom-scrollbar pe-1">
+                        <div className="space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar pe-1">
                             {existingItems.length === 0 ? (
                                 <p className="py-8 text-center text-xs text-content-muted">
-                                    هنوز هیچ کلیدی برای این سرویس ثبت نشده است.
+                                    هنوز هیچ حسابی ثبت نشده است.
                                 </p>
                             ) : (
                                 existingItems.map((item) => (
                                     <div
                                         key={item.id}
-                                        className="flex items-center justify-between rounded-xl border border-line-border/80 bg-surface-card p-3 shadow-xs"
+                                        className="flex items-center justify-between gap-4 rounded-xl border border-line-border bg-surface-card p-3.5 shadow-xs"
                                     >
-                                        <div className="flex items-center gap-2.5 min-w-0">
-                                            <Icon name="key" className="size-4 text-primary shrink-0" />
-                                            <span className="text-xs font-bold text-content-main truncate">
-                                                {item.name}
-                                            </span>
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
+                                                <Icon name={definition.icon ?? 'key'} className="size-4.5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span dir="auto" className="text-xs font-bold text-content-main truncate">
+                                                        {item.name}
+                                                    </span>
+                                                    {item.is_connected && (
+                                                        <span className="flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-500">
+                                                            <span className="size-1.5 rounded-full bg-emerald-500" />
+                                                            متصل
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {item.connected_email && (
+                                                    <p dir="ltr" className="text-[11px] font-mono text-content-muted mt-0.5 text-right truncate">
+                                                        {item.connected_email}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <button
-                                            type="button"
-                                            onClick={() => setPendingDelete(item)}
-                                            title="حذف کلید"
-                                            className="flex size-7 items-center justify-center rounded-lg text-content-muted transition hover:bg-primary/10 hover:text-primary"
-                                        >
-                                            <Icon name="trash" className="size-3.5" />
-                                        </button>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {definition.key === 'gmail' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openGoogleOAuthPopup(item.id)}
+                                                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                                                        item.is_connected
+                                                            ? 'border border-line-border text-content-muted hover:text-content-main'
+                                                            : 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20'
+                                                    }`}
+                                                >
+                                                    <Icon name="external-link" className="size-3.5" />
+                                                    <span>{item.is_connected ? 'اتصال مجدد' : 'اتصال به گوگل'}</span>
+                                                </button>
+                                            )}
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setPendingDelete(item)}
+                                                title="حذف حساب"
+                                                className="flex size-8 items-center justify-center rounded-lg text-content-muted transition hover:bg-primary/10 hover:text-primary"
+                                            >
+                                                <Icon name="trash" className="size-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))
                             )}
@@ -348,8 +454,8 @@ export function CredentialModal({
 
             <ConfirmModal
                 isOpen={pendingDelete !== null}
-                title="حذف اعتبارنامه"
-                message={`«${pendingDelete?.name ?? ''}» برای همیشه حذف می‌شود. نودهایی که از این کلید استفاده می‌کنند هنگام اجرا خطا می‌دهند.`}
+                title="حذف حساب"
+                message={`حساب «${pendingDelete?.name ?? ''}» حذف می‌شود. نودهای متصل به آن با خطا مواجه خواهند شد.`}
                 isLoading={isDeleting}
                 onConfirm={() => void confirmDelete()}
                 onCancel={() => setPendingDelete(null)}

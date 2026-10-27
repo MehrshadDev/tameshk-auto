@@ -1,7 +1,12 @@
 import { request } from '@canvas/api/client';
 import type { CredentialDefinition } from '@canvas/types/graph';
 
-export type CredentialItem = { id: number; name: string };
+export type CredentialItem = {
+    id: number;
+    name: string;
+    connected_email?: string;
+    is_connected?: boolean;
+};
 
 export type { CredentialDefinition };
 

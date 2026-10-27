@@ -70,6 +70,13 @@ export const FOLDERS_CONFIG: Record<string, FolderItem> = {
         icon: 'brand:telegram',
         iconClass: 'bg-sky-500/10 text-sky-500',
     },
+    'action/gmail': {
+        id: 'action/gmail',
+        title: 'Gmail',
+        description: 'ارسال، پاسخ، جستجو و مدیریت ایمیل‌های حساب گوگل',
+        icon: 'brand:gmail',
+        iconClass: 'bg-rose-500/10 text-rose-500',
+    },
 };
 
 export const getFolderMeta = (path: string, fallbackTitle: string): FolderItem => {
