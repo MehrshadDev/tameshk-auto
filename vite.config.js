@@ -13,12 +13,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/canvas/main.tsx',
             ],
-            refresh: true,
-            fonts: [
-                bunny('Instrument Sans', {
-                    weights: [400, 500, 600],
-                }),
-            ],
+            refresh: true
         }),
         tailwindcss(),
         react(),
@@ -29,7 +24,7 @@ export default defineConfig({
             '@canvas': fileURLToPath(new URL('./resources/js/canvas', import.meta.url)),
         },
     },
-    
+
     build: {
         emptyOutDir: false,
         rollupOptions: {
@@ -42,6 +37,16 @@ export default defineConfig({
                     }
 
                     return 'assets/[name]-[hash][extname]';
+                },
+            },
+        },
+        rolldownOptions: {
+            output: {
+                codeSplitting: {
+                    groups: [
+                        { name: 'react-vendor', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+                        { name: 'xyflow-vendor', test: /node_modules[\\/](@xyflow|zustand)[\\/]/ },
+                    ],
                 },
             },
         },

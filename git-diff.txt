@@ -1,0 +1,114 @@
+diff --git a/resources/js/canvas/App.tsx b/resources/js/canvas/App.tsx
+index dbcead4..23584b6 100644
+--- a/resources/js/canvas/App.tsx
++++ b/resources/js/canvas/App.tsx
+@@ -1,13 +1,22 @@
+-import { useEffect } from 'react';
+ import { Canvas } from '@canvas/components/Canvas';
+ import { TopBar } from '@canvas/components/TopBar';
+ import { ToastContainer } from '@canvas/components/ui/ToastContainer';
+-import { UnsavedChangesModal } from '@canvas/components/ui/UnsavedChangesModal';
+-import { ChatFloatingWidget } from '@canvas/components/chat/ChatFloatingWidget';
+-import { LogsFloatingWidget } from '@canvas/components/logs/LogsFloatingWidget';
+-import { NodeSettingsPanel } from '@canvas/components/settings/NodeSettings';
+ import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
+ import { useSaveGuard } from '@canvas/lib/useSaveGuard';
++import { lazy, Suspense, useEffect } from 'react';
++
++const ChatFloatingWidget = lazy(() =>
++    import('@canvas/components/chat/ChatFloatingWidget').then((m) => ({ default: m.ChatFloatingWidget })),
++);
++const LogsFloatingWidget = lazy(() =>
++    import('@canvas/components/logs/LogsFloatingWidget').then((m) => ({ default: m.LogsFloatingWidget })),
++);
++const NodeSettingsPanel = lazy(() =>
++    import('@canvas/components/settings/NodeSettings').then((m) => ({ default: m.NodeSettingsPanel })),
++);
++const UnsavedChangesModal = lazy(() =>
++    import('@canvas/components/ui/UnsavedChangesModal').then((m) => ({ default: m.UnsavedChangesModal })),
++);
+ 
+ type AppProps = {
+     workflowId: number;
+@@ -21,6 +30,8 @@ export function App({ workflowId, backUrl }: AppProps) {
+ 
+     const status = useWorkflowStore((state) => state.status);
+     const load = useWorkflowStore((state) => state.load);
++    const nodePanelOpen = useWorkflowStore((state) => state.panel?.type === 'node');
++    const exitPromptOpen = useWorkflowStore((state) => state.exitPromptOpen);
+ 
+     useEffect(() => {
+         void load(workflowId);
+@@ -71,10 +82,13 @@ export function App({ workflowId, backUrl }: AppProps) {
+                 )}
+             </div>
+ 
+-            <ChatFloatingWidget />
+-            <LogsFloatingWidget />
+-            <NodeSettingsPanel />
+-            <UnsavedChangesModal backUrl={backUrl} />
++            <Suspense fallback={null}>
++                {status === 'ready' && <ChatFloatingWidget />}
++                {status === 'ready' && <LogsFloatingWidget />}
++                {nodePanelOpen && <NodeSettingsPanel />}
++                {exitPromptOpen && <UnsavedChangesModal backUrl={backUrl} />}
++            </Suspense>
++
+             <ToastContainer />
+         </div>
+     );
+diff --git a/resources/js/canvas/store/useWorkflowStore.ts b/resources/js/canvas/store/useWorkflowStore.ts
+index 6fd5ecd..adfc150 100644
+--- a/resources/js/canvas/store/useWorkflowStore.ts
++++ b/resources/js/canvas/store/useWorkflowStore.ts
+@@ -21,6 +21,5 @@ export const useWorkflowStore = create<WorkflowState>()((...args) => ({
+     ...createChatSlice(...args),
+     ...createLogsSlice(...args),
+     ...createPublishSlice(...args),
+-    ...createPublishSlice(...args),
+     ...createMetaSlice(...args),
+ }));
+diff --git a/vite.config.js b/vite.config.js
+index a2dfd4f..788c5a4 100644
+--- a/vite.config.js
++++ b/vite.config.js
+@@ -13,12 +13,7 @@ export default defineConfig({
+                 'resources/js/app.js',
+                 'resources/js/canvas/main.tsx',
+             ],
+-            refresh: true,
+-            fonts: [
+-                bunny('Instrument Sans', {
+-                    weights: [400, 500, 600],
+-                }),
+-            ],
++            refresh: true
+         }),
+         tailwindcss(),
+         react(),
+@@ -29,7 +24,7 @@ export default defineConfig({
+             '@canvas': fileURLToPath(new URL('./resources/js/canvas', import.meta.url)),
+         },
+     },
+-    
++
+     build: {
+         emptyOutDir: false,
+         rollupOptions: {
+@@ -45,6 +40,16 @@ export default defineConfig({
+                 },
+             },
+         },
++        rolldownOptions: {
++            output: {
++                codeSplitting: {
++                    groups: [
++                        { name: 'react-vendor', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
++                        { name: 'xyflow-vendor', test: /node_modules[\\/](@xyflow|zustand)[\\/]/ },
++                    ],
++                },
++            },
++        },
+     },
+ 
+     server: {

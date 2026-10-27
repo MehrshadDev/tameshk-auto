@@ -1,13 +1,22 @@
-import { useEffect } from 'react';
 import { Canvas } from '@canvas/components/Canvas';
 import { TopBar } from '@canvas/components/TopBar';
 import { ToastContainer } from '@canvas/components/ui/ToastContainer';
-import { UnsavedChangesModal } from '@canvas/components/ui/UnsavedChangesModal';
-import { ChatFloatingWidget } from '@canvas/components/chat/ChatFloatingWidget';
-import { LogsFloatingWidget } from '@canvas/components/logs/LogsFloatingWidget';
-import { NodeSettingsPanel } from '@canvas/components/settings/NodeSettings';
 import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
 import { useSaveGuard } from '@canvas/lib/useSaveGuard';
+import { lazy, Suspense, useEffect } from 'react';
+
+const ChatFloatingWidget = lazy(() =>
+    import('@canvas/components/chat/ChatFloatingWidget').then((m) => ({ default: m.ChatFloatingWidget })),
+);
+const LogsFloatingWidget = lazy(() =>
+    import('@canvas/components/logs/LogsFloatingWidget').then((m) => ({ default: m.LogsFloatingWidget })),
+);
+const NodeSettingsPanel = lazy(() =>
+    import('@canvas/components/settings/NodeSettings').then((m) => ({ default: m.NodeSettingsPanel })),
+);
+const UnsavedChangesModal = lazy(() =>
+    import('@canvas/components/ui/UnsavedChangesModal').then((m) => ({ default: m.UnsavedChangesModal })),
+);
 
 type AppProps = {
     workflowId: number;
@@ -21,6 +30,8 @@ export function App({ workflowId, backUrl }: AppProps) {
 
     const status = useWorkflowStore((state) => state.status);
     const load = useWorkflowStore((state) => state.load);
+    const nodePanelOpen = useWorkflowStore((state) => state.panel?.type === 'node');
+    const exitPromptOpen = useWorkflowStore((state) => state.exitPromptOpen);
 
     useEffect(() => {
         void load(workflowId);
@@ -71,10 +82,13 @@ export function App({ workflowId, backUrl }: AppProps) {
                 )}
             </div>
 
-            <ChatFloatingWidget />
-            <LogsFloatingWidget />
-            <NodeSettingsPanel />
-            <UnsavedChangesModal backUrl={backUrl} />
+            <Suspense fallback={null}>
+                {status === 'ready' && <ChatFloatingWidget />}
+                {status === 'ready' && <LogsFloatingWidget />}
+                {nodePanelOpen && <NodeSettingsPanel />}
+                {exitPromptOpen && <UnsavedChangesModal backUrl={backUrl} />}
+            </Suspense>
+
             <ToastContainer />
         </div>
     );

@@ -21,6 +21,5 @@ export const useWorkflowStore = create<WorkflowState>()((...args) => ({
     ...createChatSlice(...args),
     ...createLogsSlice(...args),
     ...createPublishSlice(...args),
-    ...createPublishSlice(...args),
     ...createMetaSlice(...args),
 }));
