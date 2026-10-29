@@ -67,14 +67,6 @@ function NodeBadge({disabled, executing, missing, status, successCount}: NodeBad
         );
     }
 
-    if (missing.length > 0) {
-        return (
-            <span title={`فیلدهای ناقص: ${missing.join('، ')}`} className={`${BADGE_BASE} bg-amber-500`}>
-                <Icon name="alert-triangle" className="size-3"/>
-            </span>
-        );
-    }
-
     if (status === 'failed') {
         return (
             <span className={`${BADGE_BASE} bg-primary`}>
@@ -92,6 +84,14 @@ function NodeBadge({disabled, executing, missing, status, successCount}: NodeBad
                         {successCount}
                     </span>
                 )}
+            </span>
+        );
+    }
+
+    if (missing.length > 0) {
+        return (
+            <span title={`فیلدهای ناقص: ${missing.join('، ')}`} className={`${BADGE_BASE} bg-amber-500`}>
+                <Icon name="alert-triangle" className="size-3"/>
             </span>
         );
     }
@@ -131,7 +131,10 @@ export function WorkflowNode({id, data, selected}: NodeProps<FlowNode>) {
     const isCondition = data.nodeType === 'logic.condition';
     const isDisabled = Boolean(data.config?.disabled) && !isTrigger;
     const isNodeExecuting = runningNodeId === id;
-    const missingFields = definition && !isDisabled
+
+    // فقط زمانی که حداقل یک بار اجرا صورت گرفته باشد فیلدهای ناقص بررسی می‌شوند
+    const hasEverRun = lastRun !== null;
+    const missingFields = hasEverRun && definition && !isDisabled
         ? missingRequiredLabels(definition.configSchema, data.config ?? {})
         : [];
 
@@ -154,7 +157,7 @@ export function WorkflowNode({id, data, selected}: NodeProps<FlowNode>) {
             return !src?.data.config?.disabled;
         });
 
-    const isMissingModel = isAiAgent && !isSlotConnected(HandleId.ChatModel);
+    const isMissingModel = hasEverRun && isAiAgent && !isSlotConnected(HandleId.ChatModel);
     const isForeignConnecting = Boolean(connectingHandle && connectingHandle.nodeId !== id);
 
     const conditionOutcome = isCondition && lastRunItem?.status === 'success'
@@ -253,36 +256,6 @@ export function WorkflowNode({id, data, selected}: NodeProps<FlowNode>) {
                         status={lastRunItem?.status}
                         successCount={successCount}
                     />
-                    {!isDisabled && (
-                        <div className="absolute -top-1.5 -right-1.5 z-20 flex items-center justify-center">
-                            {isNodeExecuting ? (
-                                <span
-                                    className="flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-md ring-2 ring-surface-card">
-                                    <Icon name="loader" className="size-3 animate-spin"/>
-                                </span>
-                            ) : (
-                                <>
-                                    {lastRunItem?.status === 'success' && (
-                                        <span
-                                            className="flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full bg-emerald-500 px-1 text-white shadow-md ring-2 ring-surface-card">
-                                            <Icon name="check" className="size-3"/>
-                                            {successCount > 1 && (
-                                                <span className="font-mono text-[9px] font-bold leading-none" dir="ltr">
-                                                    {successCount}
-                                                </span>
-                                            )}
-                                        </span>
-                                    )}
-                                    {lastRunItem?.status === 'failed' && (
-                                        <span
-                                            className="flex size-5 items-center justify-center rounded-full bg-primary text-white shadow-md ring-2 ring-surface-card">
-                                            <Icon name="x" className="size-3"/>
-                                        </span>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    )}
 
                     <div
                         className="pointer-events-none absolute -left-1.5 top-1/2 z-10 flex -translate-y-1/2 items-center">
@@ -399,31 +372,6 @@ export function WorkflowNode({id, data, selected}: NodeProps<FlowNode>) {
                         status={lastRunItem?.status}
                         successCount={successCount}
                     />
-                    {!isDisabled && (
-                        <div className="absolute -top-1.5 -right-1.5 z-20 flex items-center justify-center">
-                            {isNodeExecuting ? (
-                                <span
-                                    className="flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-md ring-2 ring-surface-card">
-                                    <Icon name="loader" className="size-3 animate-spin"/>
-                                </span>
-                            ) : (
-                                <>
-                                    {lastRunItem?.status === 'success' && (
-                                        <span
-                                            className="flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full bg-emerald-500 px-1 text-white shadow-md ring-2 ring-surface-card">
-                                            <Icon name="check" className="size-3"/>
-                                        </span>
-                                    )}
-                                    {lastRunItem?.status === 'failed' && (
-                                        <span
-                                            className="flex size-5 items-center justify-center rounded-full bg-primary text-white shadow-md ring-2 ring-surface-card">
-                                            <Icon name="x" className="size-3"/>
-                                        </span>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    )}
 
                     <div
                         className="pointer-events-none absolute left-1/2 top-0 z-10 flex -translate-x-1/2 -translate-y-1/2 items-center">
@@ -461,36 +409,6 @@ export function WorkflowNode({id, data, selected}: NodeProps<FlowNode>) {
                         status={lastRunItem?.status}
                         successCount={successCount}
                     />
-                    {!isDisabled && (
-                        <div className="absolute -top-1.5 -right-1.5 z-20 flex items-center justify-center">
-                            {isNodeExecuting ? (
-                                <span
-                                    className="flex size-5 items-center justify-center rounded-full bg-amber-500 text-white shadow-md ring-2 ring-surface-card">
-                                    <Icon name="loader" className="size-3 animate-spin"/>
-                                </span>
-                            ) : (
-                                <>
-                                    {lastRunItem?.status === 'success' && (
-                                        <span
-                                            className="flex h-5 min-w-5 items-center justify-center gap-0.5 rounded-full bg-emerald-500 px-1 text-white shadow-md ring-2 ring-surface-card">
-                                            <Icon name="check" className="size-3"/>
-                                            {successCount > 1 && (
-                                                <span className="font-mono text-[9px] font-bold leading-none" dir="ltr">
-                                                    {successCount}
-                                                </span>
-                                            )}
-                                        </span>
-                                    )}
-                                    {lastRunItem?.status === 'failed' && (
-                                        <span
-                                            className="flex size-5 items-center justify-center rounded-full bg-primary text-white shadow-md ring-2 ring-surface-card">
-                                            <Icon name="x" className="size-3"/>
-                                        </span>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                    )}
 
                     {inputs.map((handleId, index) => {
                         const top = handleTop(index, inputs.length);

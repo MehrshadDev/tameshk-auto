@@ -64,14 +64,14 @@ final class NodeConfigValidator
         return $errors;
     }
 
-    private function isFieldVisible(array $field, array $config): bool
+    private function isFieldVisible(array $field, array $config, ?NodeDefinition $definition = null): bool
     {
         if (empty($field['depends_on']) || ! is_array($field['depends_on'])) {
             return true;
         }
 
         foreach ($field['depends_on'] as $depKey => $depValues) {
-            $actual = $config[$depKey] ?? null;
+            $actual = $config[$depKey] ?? ($definition->configSchema[$depKey]['default'] ?? null);
             $allowed = is_array($depValues) ? $depValues : [$depValues];
 
             if (! in_array($actual, $allowed, false)) {
@@ -92,6 +92,7 @@ final class NodeConfigValidator
             'keyvalue'     => $this->checkKeyValue($value),
             'credential'   => $complete ? $this->checkCredential($field, $value, $credentials) : null,
             'model_select' => $this->checkModelSelect($value),
+            'dynamic_select' => $this->checkText($value),
             'conditions'   => $this->checkConditions($value),
             default        => 'نوع تنظیم پشتیبانی نمی‌شود.',
         };

@@ -10,7 +10,7 @@ type FieldShellProps = {
 
 export function FieldShell({ label, required, help, children }: FieldShellProps) {
     return (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
             <span className="flex items-center gap-1 text-xs font-semibold text-content-main select-none w-fit cursor-default">
                 {label}
                 {required && <span className="text-primary">*</span>}

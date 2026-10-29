@@ -9,6 +9,7 @@ import { Select } from '@canvas/components/ui/Select';
 import { asString, normalizeOptions, textDir } from '@canvas/lib/fields';
 import type { ConfigField } from '@canvas/types/graph';
 import { MultiSelectField } from '@canvas/components/settings/MultiSelectField';
+import { DynamicSelect } from '@canvas/components/settings/DynamicSelect';
 
 type ConfigFieldInputProps = {
     id: string;
@@ -244,6 +245,18 @@ export function ConfigFieldInput(props: ConfigFieldInputProps) {
                 credentialType={field.credential_type ?? ''}
                 value={value}
                 onChange={onChange}
+            />
+        );
+    }
+
+    if (field.type === 'dynamic_select') {
+        return (
+            <DynamicSelect
+                id={id}
+                field={field}
+                value={value}
+                onChange={onChange}
+                fullConfig={fullConfig}
             />
         );
     }

@@ -13,13 +13,35 @@ export const asString = (value: unknown): string =>
 export const normalizeOptions = (options: ConfigField['options'] = []): SelectOption[] =>
     options.map((option) => (typeof option === 'string' ? { value: option, label: option } : option));
 
+const isFieldVisible = (
+    field: ConfigField,
+    config: Record<string, unknown>,
+    schema: Record<string, ConfigField>,
+): boolean => {
+    if (!field.depends_on) return true;
+
+    for (const [depKey, depValue] of Object.entries(field.depends_on)) {
+        const actual = config[depKey] ?? schema[depKey]?.default ?? '';
+        const allowed = Array.isArray(depValue) ? depValue : [depValue];
+        if (!allowed.includes(String(actual))) {
+            return false;
+        }
+    }
+
+    return true;
+};
+
 export const missingRequiredLabels = (
     schema: Record<string, ConfigField>,
     config: Record<string, unknown>,
 ): string[] =>
     Object.entries(schema)
         .filter(([key, field]) => {
-            if (!field.required) {
+            if (!field.required || field.advanced) {
+                return false;
+            }
+
+            if (!isFieldVisible(field, config, schema)) {
                 return false;
             }
 

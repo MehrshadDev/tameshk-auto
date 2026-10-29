@@ -27,6 +27,7 @@ class GoogleOAuthController extends Controller
         'google' => [
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive.file',
+            'https://www.googleapis.com/auth/drive.metadata.readonly',
             'https://www.googleapis.com/auth/userinfo.email',
         ],
     ];

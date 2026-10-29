@@ -7,7 +7,7 @@ import { Icon } from '@canvas/components/ui/Icon';
 import { nodeAppearance } from '@canvas/lib/nodeStyles';
 import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
 import { isSpecialHandle } from '@canvas/lib/handles';
-import { isTelegramTrigger, isTestableTrigger, isGmailTrigger } from '@canvas/lib/triggers';
+import { isTelegramTrigger, isTestableTrigger, isGmailTrigger, isSheetsTrigger } from '@canvas/lib/triggers';
 import { useBackdropClose } from '@canvas/lib/useBackdropClose';
 import type { ConfigField } from '@canvas/types/graph';
 import type { FlowNode } from '@canvas/lib/graph';
@@ -288,12 +288,12 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     return (
         <div
             {...backdrop}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-2 sm:p-5"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-2"
         >
             <div
                 dir="rtl"
                 onClick={(e) => e.stopPropagation()}
-                className="studio-modal flex h-[94vh] w-full max-w-7xl flex-col overflow-hidden rounded-3xl border border-line-border bg-surface-raised shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+                className="studio-modal flex h-[96vh] w-full max-w-[1680px] flex-col overflow-hidden rounded-2xl border border-line-border bg-surface-raised shadow-2xl animate-in fade-in zoom-in-95 duration-150"
             >
                 <header
                     dir="ltr"
@@ -355,7 +355,9 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                             ? 'دریافت پیام تستی'
                                             : isGmailTrigger(node.data.nodeType)
                                                 ? 'بررسی و دریافت ایمیل تستی'
-                                                : 'تست این مرحله'}
+                                                : isSheetsTrigger(node.data.nodeType)
+                                                    ? 'بررسی تغییرات شیت'
+                                                    : 'تست این مرحله'}
                                     </span>
                                 </button>
                             )
@@ -557,9 +559,16 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                                     value={node.data.config[key] ?? field.default ?? null}
                                                     incomingData={combinedIncomingContext}
                                                     fullConfig={node.data.config}
-                                                    onChange={(value) =>
-                                                        updateNode(node.id, { config: { ...node.data.config, [key]: value } })
-                                                    }
+                                                    onChange={(value) => {
+                                                        const nextConfig: Record<string, unknown> = { ...node.data.config, [key]: value };
+                                                        if (key === 'credential_id') {
+                                                            delete nextConfig.spreadsheet_id;
+                                                            delete nextConfig.sheet;
+                                                        } else if (key === 'spreadsheet_id') {
+                                                            delete nextConfig.sheet;
+                                                        }
+                                                        updateNode(node.id, { config: nextConfig });
+                                                    }}
                                                 />
                                             </FieldShell>
                                         );

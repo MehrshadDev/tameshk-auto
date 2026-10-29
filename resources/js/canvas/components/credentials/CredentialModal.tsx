@@ -20,7 +20,7 @@ type CredentialModalProps = {
 };
 
 const baseInputClass =
-    'w-full rounded-xl border border-line-border bg-field px-4 py-3 text-sm text-content-main transition focus:border-primary focus:bg-surface-card focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs';
+    'w-full rounded-xl border border-line-border bg-field px-4 py-2.5 text-sm text-content-main transition focus:border-primary focus:bg-surface-card focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs';
 
 const getDefaultName = (def: CredentialDefinition): string => {
     switch (def.key) {
@@ -68,6 +68,9 @@ export function CredentialModal({
     const [pendingDelete, setPendingDelete] = useState<CredentialItem | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const addToast = useWorkflowStore((state) => state.addToast);
+
+    const schemaEntries = Object.entries(definition.schema);
+    const isSingleField = schemaEntries.length === 1;
 
     useEffect(() => {
         if (isOpen) {
@@ -119,7 +122,7 @@ export function CredentialModal({
             return;
         }
 
-        for (const [key, field] of Object.entries(definition.schema)) {
+        for (const [key, field] of schemaEntries) {
             if (field.required && !formData[key]?.trim()) {
                 setErrorMessage(`${field.label ?? key} الزامی است.`);
                 return;
@@ -176,6 +179,7 @@ export function CredentialModal({
         const value = formData[key] ?? '';
         const inputName = `credential_${key}_field`;
         const label = field.label ?? key;
+        const spanFull = isSingleField || field.type === 'textarea' || field.type === 'code';
 
         const control = (() => {
             switch (field.type) {
@@ -255,14 +259,14 @@ export function CredentialModal({
         })();
 
         return (
-            <div
-                key={key}
-                className={`space-y-2 ${field.type === 'textarea' || field.type === 'code' ? 'sm:col-span-2' : ''}`}
-            >
-                <label className="text-xs font-semibold text-content-main">
+            <div key={key} className={`space-y-2 ${spanFull ? 'sm:col-span-2' : ''}`}>
+                <label className="block text-xs font-semibold text-content-main">
                     {label}
                 </label>
                 {control}
+                {field.help && (
+                    <p className="text-[11px] leading-5 text-content-muted">{field.help}</p>
+                )}
             </div>
         );
     };
@@ -322,8 +326,8 @@ export function CredentialModal({
 
                     {view === 'create' ? (
                         <form onSubmit={handleCreate} autoComplete="off" className="space-y-6">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-semibold text-content-main">
+                            <div className="space-y-2">
+                                <label className="block text-xs font-semibold text-content-main">
                                     نام حساب
                                 </label>
                                 <input
@@ -340,10 +344,8 @@ export function CredentialModal({
                                 />
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                {Object.entries(definition.schema).map(([key, field]) =>
-                                    renderField(key, field),
-                                )}
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                {schemaEntries.map(([key, field]) => renderField(key, field))}
                             </div>
 
                             {(definition.key === 'gmail' || definition.key === 'google') && (
@@ -393,7 +395,7 @@ export function CredentialModal({
                             </div>
                         </form>
                     ) : (
-                        <div className="space-y-2.5 max-h-[28rem] overflow-y-auto custom-scrollbar pe-1">
+                        <div className="space-y-2.5 max-h-112 overflow-y-auto custom-scrollbar pe-1">
                             {existingItems.length === 0 ? (
                                 <p className="py-8 text-center text-xs text-content-muted">
                                     هنوز هیچ حسابی ثبت نشده است.

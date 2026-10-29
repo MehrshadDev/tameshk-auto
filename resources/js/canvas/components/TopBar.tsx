@@ -1,6 +1,6 @@
 import { Icon } from '@canvas/components/ui/Icon';
 import { Tooltip } from '@canvas/components/ui/Tooltip';
-import { isTelegramTrigger, isTestableTrigger } from '@canvas/lib/triggers';
+import { isTelegramTrigger, isGmailTrigger, isSheetsTrigger, isTestableTrigger } from '@canvas/lib/triggers';
 import { useColorMode } from '@canvas/lib/useColorMode';
 import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
 import { SaveButton } from '@canvas/components/SaveButton';
@@ -26,7 +26,16 @@ export function TopBar({ backUrl }: TopBarProps) {
 
     const canTest = nodes.some((n) => isTestableTrigger(n.data.nodeType));
     const isBusy = isRunning || runningNodeId !== null;
-    const isListening = nodes.some((n) => n.id === runningNodeId && isTelegramTrigger(n.data.nodeType));
+    const runningTrigger = nodes.find((n) => n.id === runningNodeId);
+    const listeningText = runningTrigger
+        ? isTelegramTrigger(runningTrigger.data.nodeType)
+            ? 'در انتظار پیام تلگرام...'
+            : isGmailTrigger(runningTrigger.data.nodeType)
+                ? 'در انتظار ایمیل جدید...'
+                : isSheetsTrigger(runningTrigger.data.nodeType)
+                    ? 'در انتظار تغییر در شیت...'
+                    : null
+        : null;
 
     const handleBack = () => {
         if (saveStatus === 'saved') {
@@ -62,10 +71,10 @@ export function TopBar({ backUrl }: TopBarProps) {
             <div className="flex items-center gap-3">
                 {isBusy ? (
                     <>
-                        {isListening && (
+                        {listeningText && (
                             <span className="flex items-center gap-1.5 text-xs text-content-muted">
                                 <Icon name="loader" className="size-3.5 animate-spin text-primary" />
-                                در انتظار پیام تلگرام...
+                                {listeningText}
                             </span>
                         )}
 

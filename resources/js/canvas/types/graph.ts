@@ -94,6 +94,7 @@ export type ConfigField = {
     max?: number;
     integer?: boolean;
     credential_type?: string;
+    source?: string;
     depends_on?: Record<string, string | string[]>;
     advanced?: boolean;
 };

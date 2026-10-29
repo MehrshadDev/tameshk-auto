@@ -25,6 +25,9 @@ use App\Workflow\Nodes\Logic\ConditionNode;
 use App\Workflow\Nodes\Logic\DelayNode;
 use App\Workflow\Nodes\Triggers\ChatTriggerNode;
 use App\Workflow\Nodes\Triggers\GmailTriggerNode;
+use App\Workflow\Nodes\Triggers\GoogleSheetsRowAddedOrUpdatedTriggerNode;
+use App\Workflow\Nodes\Triggers\GoogleSheetsRowAddedTriggerNode;
+use App\Workflow\Nodes\Triggers\GoogleSheetsRowUpdatedTriggerNode;
 use App\Workflow\Nodes\Triggers\ManualTriggerNode;
 use App\Workflow\Nodes\Triggers\TelegramTriggerNode;
 use App\Workflow\Registry\NodeRegistry;
@@ -41,6 +44,9 @@ class WorkflowServiceProvider extends ServiceProvider
                 ChatTriggerNode::class,
                 TelegramTriggerNode::class,
                 GmailTriggerNode::class,
+                GoogleSheetsRowAddedTriggerNode::class,
+                GoogleSheetsRowUpdatedTriggerNode::class,
+                GoogleSheetsRowAddedOrUpdatedTriggerNode::class,
                 ConditionNode::class,
                 DelayNode::class,
                 HttpRequestNode::class,

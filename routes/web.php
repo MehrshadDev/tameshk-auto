@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CredentialController;
+use App\Http\Controllers\GoogleSheetsOptionsController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OAuth\GoogleOAuthController;
 use App\Http\Controllers\WorkflowController;
@@ -63,6 +64,13 @@ Route::middleware('auth')
             Route::patch('workflows/{workflow}', [WorkflowController::class, 'rename'])
                 ->middleware('throttle:60,1')
                 ->name('workflows.rename');
+
+            Route::get('credentials/{credential}/google/spreadsheets', [GoogleSheetsOptionsController::class, 'spreadsheets'])
+                ->middleware('throttle:60,1')
+                ->name('credentials.google.spreadsheets');
+            Route::get('credentials/{credential}/google/spreadsheets/{spreadsheet}/sheets', [GoogleSheetsOptionsController::class, 'sheets'])
+                ->middleware('throttle:60,1')
+                ->name('credentials.google.sheets');
 
             Route::apiResource('credentials', CredentialController::class);
             Route::get('credentials/{credential}/models', [CredentialController::class, 'models'])
