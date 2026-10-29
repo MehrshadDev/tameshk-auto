@@ -15,10 +15,9 @@ use App\Workflow\Exceptions\NodeExecutionException;
 use App\Workflow\Graph\NodeConfigGuard;
 use App\Workflow\Registry\NodeRegistry;
 use App\Workflow\Support\AgentMemory;
-use App\Workflow\Support\GeminiError;
-use Illuminate\Support\Facades\Http;
-use Throwable;
+use App\Workflow\Support\LlmChatClient;
 use App\Workflow\Support\TemplateEngine;
+use Throwable;
 
 class AiAgentNode implements NodeContract
 {
@@ -37,15 +36,15 @@ class AiAgentNode implements NodeContract
             outputs: [HandleType::Main->value],
             configSchema: [
                 'prompt' => [
-                    'type' => 'textarea',
-                    'label' => 'پرامپت کاربر',
-                    'default' => '{{ input.chatInput }}',
+                    'type'        => 'textarea',
+                    'label'       => 'پرامپت کاربر',
+                    'default'     => '{{ input.chatInput }}',
                     'placeholder' => '{{ input.chatInput }}',
-                    'required' => true,
+                    'required'    => true,
                 ],
                 'system_prompt' => [
-                    'type' => 'textarea',
-                    'label' => 'دستورالعمل‌های سیستمی (System Instructions)',
+                    'type'     => 'textarea',
+                    'label'    => 'دستورالعمل‌های سیستمی (System Instructions)',
                     'required' => false,
                 ],
             ],
@@ -82,8 +81,7 @@ class AiAgentNode implements NodeContract
             throw NodeExecutionException::because('اعتبارنامه API برای مدل هوش مصنوعی یافت نشد.');
         }
 
-        $apiKey = $credential->get('api_key');
-        $model = $modelNode->config['model'] ?? 'gemini-1.5-flash';
+        $model = (string) ($modelNode->config['model'] ?? 'gemini-2.0-flash');
         $temperature = (float) ($modelNode->config['temperature'] ?? 0.4);
 
         $memoryNode = $findSupplyNode(HandleType::Memory->value);
@@ -131,7 +129,7 @@ class AiAgentNode implements NodeContract
             $history = AgentMemory::get($sessionKey);
 
             $memRun = $this->recordRun($context, $memoryNode->id, 'success', $this->elapsed($memStart), [
-                'input_data' => ['session' => $sessionKey],
+                'input_data'  => ['session' => $sessionKey],
                 'output_data' => ['messages_count' => count($history)],
             ]);
 
@@ -162,53 +160,31 @@ class AiAgentNode implements NodeContract
                 }
 
                 $toolsMap[$normalizedName] = [
-                    'node' => $tNode,
+                    'node'     => $tNode,
                     'instance' => $executor,
                 ];
 
                 $functionDeclarations[] = [
-                    'name' => $normalizedName,
+                    'name'        => $normalizedName,
                     'description' => $executor->toolDescription($tNode->config ?? []),
-                    'parameters' => $executor->toolParameters($tNode->config ?? []),
+                    'parameters'  => $executor->toolParameters($tNode->config ?? []),
                 ];
             }
         }
 
-        $contents = [];
+        $messages = [];
 
         foreach ($history as $msg) {
-            $contents[] = [
-                'role' => $msg['role'],
-                'parts' => [['text' => $msg['text']]],
+            $messages[] = [
+                'role' => ($msg['role'] ?? 'user') === 'model' ? 'assistant' : $msg['role'],
+                'text' => (string) ($msg['text'] ?? ''),
             ];
         }
 
-        $contents[] = [
+        $messages[] = [
             'role' => 'user',
-            'parts' => [['text' => $userPrompt]],
+            'text' => $userPrompt,
         ];
-
-        $payload = [
-            'contents' => $contents,
-            'generationConfig' => ['temperature' => $temperature],
-        ];
-
-        if ($systemPrompt !== '') {
-            $payload['system_instruction'] = [
-                'parts' => [['text' => $systemPrompt]],
-            ];
-        }
-
-        if (! empty($functionDeclarations)) {
-            $payload['tools'] = [
-                ['functionDeclarations' => $functionDeclarations],
-            ];
-        }
-
-        $baseUrl = rtrim(config('services.gemini.base_url', 'https://generativelanguage.googleapis.com'), '/');
-        $endpoint = str_ends_with($baseUrl, '/v1beta')
-            ? "$baseUrl/models/$model:generateContent"
-            : "$baseUrl/v1beta/models/$model:generateContent";
 
         $step = 0;
         $finalOutputText = null;
@@ -216,111 +192,95 @@ class AiAgentNode implements NodeContract
         while ($step < self::MAX_TOOL_STEPS) {
             $step++;
             $modelStart = microtime(true);
-            $context->log("درخواست مدل جمینای (مدل: $model | مرحله: $step)");
+            $context->log("فراخوانی مدل هوش مصنوعی ($model | مرحله: $step)");
             $context->emitStatus($modelNode->id, 'running');
 
             try {
-                $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
-                    ->timeout(60)
-                    ->post($endpoint, $payload);
+                $llmResult = LlmChatClient::chat(
+                    credential: $credential,
+                    model: $model,
+                    messages: $messages,
+                    systemPrompt: $systemPrompt !== '' ? $systemPrompt : null,
+                    temperature: $temperature,
+                    tools: $functionDeclarations,
+                );
             } catch (Throwable $e) {
                 $this->failModel($context, $modelNode->id, $modelStart, $e->getMessage());
-                throw NodeExecutionException::because("سرویس هوش مصنوعی در دسترس نیست: {$e->getMessage()}");
+                throw $e instanceof NodeExecutionException
+                    ? $e
+                    : NodeExecutionException::because($e->getMessage());
             }
 
-            if ($response->failed()) {
-                $message = GeminiError::describe($response);
-                $this->failModel($context, $modelNode->id, $modelStart, $message);
-                throw NodeExecutionException::because($message);
-            }
+            $toolCalls = $llmResult['tool_calls'];
 
-            $candidate = data_get($response->json(), 'candidates.0');
-            $candidateContent = data_get($candidate, 'content');
-            $parts = data_get($candidateContent, 'parts', []);
+            if (! empty($toolCalls)) {
+                $messages[] = $llmResult['raw_assistant_message'];
 
-            $functionCallPart = null;
-            $textParts = [];
+                foreach ($toolCalls as $call) {
+                    $fnName = (string) ($call['name'] ?? '');
+                    $fnArgs = (array) ($call['args'] ?? []);
+                    $callId = (string) ($call['id'] ?? ('call_' . uniqid()));
 
-            foreach ($parts as $part) {
-                if (isset($part['functionCall'])) {
-                    $functionCallPart = $part['functionCall'];
-                }
-                if (isset($part['text'])) {
-                    $textParts[] = $part['text'];
-                }
-            }
-
-            if ($functionCallPart !== null) {
-                $fnName = (string) ($functionCallPart['name'] ?? '');
-                $fnArgs = (array) ($functionCallPart['args'] ?? []);
-
-                if (! isset($toolsMap[$fnName])) {
-                    $this->failModel($context, $modelNode->id, $modelStart, "ابزار ناشناخته: $fnName");
-                    throw NodeExecutionException::because("ابزار درخواستی [$fnName] پیدا نشد.");
-                }
-
-                $toolInfo = $toolsMap[$fnName];
-                $targetToolNode = $toolInfo['node'];
-                $toolInstance = $toolInfo['instance'];
-
-                $context->log("اجرای ابزار [$fnName]");
-                $context->emitStatus($targetToolNode->id, 'running');
-                $toolStart = microtime(true);
-
-                $toolContext = new NodeContext(
-                    node: $targetToolNode,
-                    config: $targetToolNode->config ?? [],
-                    input: $fnArgs,
-                    run: $context->run,
-                    credentials: app(CredentialResolver::class),
-                    onProgress: $context->onProgress,
-                );
-
-                try {
-                    $toolResult = $toolInstance->executeTool($toolContext, $fnArgs);
-
-                    $toolRun = $this->recordRun($context, $targetToolNode->id, 'success', $this->elapsed($toolStart), [
-                        'input_data' => $fnArgs,
-                        'output_data' => is_array($toolResult) ? $toolResult : ['result' => $toolResult],
-                    ]);
-                    $context->emitStatus($targetToolNode->id, 'node_success', $toolRun);
-                } catch (Throwable $e) {
-                    if (! $e instanceof NodeExecutionException) {
-                        report($e);
+                    if (! isset($toolsMap[$fnName])) {
+                        $this->failModel($context, $modelNode->id, $modelStart, "ابزار ناشناخته: $fnName");
+                        throw NodeExecutionException::because("ابزار درخواستی [$fnName] پیدا نشد.");
                     }
 
-                    $toolError = $e instanceof NodeExecutionException
-                        ? $e->getMessage()
-                        : 'اجرای ابزار با خطا مواجه شد.';
+                    $toolInfo = $toolsMap[$fnName];
+                    $targetToolNode = $toolInfo['node'];
+                    $toolInstance = $toolInfo['instance'];
 
-                    $toolRun = $this->recordRun($context, $targetToolNode->id, 'failed', $this->elapsed($toolStart), [
-                        'input_data' => $fnArgs,
-                        'error' => $toolError,
-                    ]);
-                    $context->emitStatus($targetToolNode->id, 'node_failed', $toolRun);
+                    $context->log("اجرای ابزار [$fnName]");
+                    $context->emitStatus($targetToolNode->id, 'running');
+                    $toolStart = microtime(true);
 
-                    $toolResult = ['error' => $toolError];
+                    $toolContext = new NodeContext(
+                        node: $targetToolNode,
+                        config: $targetToolNode->config ?? [],
+                        input: $fnArgs,
+                        run: $context->run,
+                        credentials: app(CredentialResolver::class),
+                        onProgress: $context->onProgress,
+                    );
+
+                    try {
+                        $toolResult = $toolInstance->executeTool($toolContext, $fnArgs);
+
+                        $toolRun = $this->recordRun($context, $targetToolNode->id, 'success', $this->elapsed($toolStart), [
+                            'input_data'  => $fnArgs,
+                            'output_data' => is_array($toolResult) ? $toolResult : ['result' => $toolResult],
+                        ]);
+                        $context->emitStatus($targetToolNode->id, 'node_success', $toolRun);
+                    } catch (Throwable $e) {
+                        if (! $e instanceof NodeExecutionException) {
+                            report($e);
+                        }
+
+                        $toolError = $e instanceof NodeExecutionException
+                            ? $e->getMessage()
+                            : 'اجرای ابزار با خطا مواجه شد.';
+
+                        $toolRun = $this->recordRun($context, $targetToolNode->id, 'failed', $this->elapsed($toolStart), [
+                            'input_data' => $fnArgs,
+                            'error'      => $toolError,
+                        ]);
+                        $context->emitStatus($targetToolNode->id, 'node_failed', $toolRun);
+
+                        $toolResult = ['error' => $toolError];
+                    }
+
+                    $messages[] = [
+                        'role'         => 'tool',
+                        'tool_call_id' => $callId,
+                        'name'         => $fnName,
+                        'content'      => is_array($toolResult) ? $toolResult : ['result' => $toolResult],
+                    ];
                 }
 
-                $contents[] = $candidateContent;
-
-                $contents[] = [
-                    'role' => 'user',
-                    'parts' => [
-                        [
-                            'functionResponse' => [
-                                'name' => $fnName,
-                                'response' => is_array($toolResult) ? $toolResult : ['result' => $toolResult],
-                            ],
-                        ],
-                    ],
-                ];
-
-                $payload['contents'] = $contents;
                 continue;
             }
 
-            $finalOutputText = trim(implode("\n", $textParts));
+            $finalOutputText = $llmResult['text'];
 
             if ($finalOutputText === '') {
                 $this->failModel($context, $modelNode->id, $modelStart, 'پاسخ هوش مصنوعی خالی بود.');
@@ -328,7 +288,7 @@ class AiAgentNode implements NodeContract
             }
 
             $successRun = $this->recordRun($context, $modelNode->id, 'success', $this->elapsed($modelStart), [
-                'input_data' => ['prompt' => $userPrompt, 'model' => $model],
+                'input_data'  => ['prompt' => $userPrompt, 'model' => $model],
                 'output_data' => ['response' => $finalOutputText],
             ]);
 
@@ -355,9 +315,9 @@ class AiAgentNode implements NodeContract
 
         return NodeResult::of([
             'response' => $finalOutputText,
-            'model' => $model,
-            'history' => $history,
-            'input' => $context->input,
+            'model'    => $model,
+            'history'  => $history,
+            'input'    => $context->input,
         ]);
     }
 
@@ -379,11 +339,11 @@ class AiAgentNode implements NodeContract
     ): NodeRun {
         return NodeRun::create([
             'workflow_run_id' => $context->run->id,
-            'node_id' => $nodeId,
-            'status' => $status,
-            'duration_ms' => $durationMs,
-            'started_at' => now(),
-            'finished_at' => now(),
+            'node_id'         => $nodeId,
+            'status'          => $status,
+            'duration_ms'     => $durationMs,
+            'started_at'      => now(),
+            'finished_at'     => now(),
             ...$attributes,
         ]);
     }

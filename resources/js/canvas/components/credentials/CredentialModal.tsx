@@ -284,7 +284,7 @@ export function CredentialModal({
                     <div className="flex items-center justify-between gap-6 border-b border-line-border/60 pb-5 mb-6">
                         <div className="flex items-center gap-3">
                             <div className="flex size-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
-                                <Icon name="key" className="size-5" />
+                                <Icon name={definition.icon ?? 'key'} className="size-5" />
                             </div>
                             <div>
                                 <h3 className="text-base font-bold text-content-main">{definition.name}</h3>

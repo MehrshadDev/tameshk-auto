@@ -39,7 +39,7 @@ export function ModelSelect({ credentialId, value, onChange }: ModelSelectProps)
                 if (!cancelled) setModels(res.data ?? []);
             })
             .catch(() => {
-                if (!cancelled) setError('دریافت لیست مدل‌ها از Google با خطا مواجه شد.');
+                if (!cancelled) setError('دریافت لیست مدل‌ها با خطا مواجه شد.');
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);
@@ -62,7 +62,7 @@ export function ModelSelect({ credentialId, value, onChange }: ModelSelectProps)
     if (loading) {
         return (
             <div className="flex h-10 items-center justify-between rounded-xl border border-line-border bg-surface-card px-3.5 text-xs text-content-muted">
-                <span>در حال دریافت لیست مدل‌ها از Google...</span>
+                <span>در حال دریافت لیست مدل‌ها...</span>
                 <Icon name="loader" className="size-4 animate-spin text-primary" />
             </div>
         );

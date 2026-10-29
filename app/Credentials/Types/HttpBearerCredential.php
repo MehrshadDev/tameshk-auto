@@ -19,7 +19,7 @@ class HttpBearerCredential implements CredentialTypeContract
             key: 'http_bearer',
             name: 'توکن Bearer',
             description: 'برای API هایی که با Bearer Token کار می‌کنند',
-            icon: 'heroicon-o-key',
+            icon: 'key',
             schema: [
                 'token' => [
                     'type'     => 'password',

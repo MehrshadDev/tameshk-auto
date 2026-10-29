@@ -19,7 +19,7 @@ class BasicAuthCredential implements CredentialTypeContract
             key: 'basic_auth',
             name: 'Basic Auth',
             description: 'نام کاربری و رمز عبور',
-            icon: 'heroicon-o-user-circle',
+            icon: 'key',
             schema: [
                 'username' => [
                     'type'     => 'text',
