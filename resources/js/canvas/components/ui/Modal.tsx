@@ -38,7 +38,7 @@ export function Modal({ isOpen, onClose, children, maxWidth = 'max-w-md' }: Moda
         >
             <div
                 dir="rtl"
-                className={`w-full ${maxWidth} overflow-hidden rounded-2xl border border-line-border bg-surface-raised shadow-2xl transition-all`}
+                className={`w-full ${maxWidth} max-h-[calc(100vh-2rem)] overflow-y-auto overflow-x-hidden custom-scrollbar rounded-2xl border border-line-border bg-surface-raised shadow-2xl transition-all`}
             >
                 {children}
             </div>

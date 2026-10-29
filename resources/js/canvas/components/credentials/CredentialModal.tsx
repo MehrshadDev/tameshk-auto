@@ -20,12 +20,14 @@ type CredentialModalProps = {
 };
 
 const baseInputClass =
-    'w-full rounded-xl border border-line-border bg-field px-3.5 py-2.5 text-xs text-content-main transition focus:border-primary focus:bg-surface-card focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs';
+    'w-full rounded-xl border border-line-border bg-field px-4 py-3 text-sm text-content-main transition focus:border-primary focus:bg-surface-card focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs';
 
 const getDefaultName = (def: CredentialDefinition): string => {
     switch (def.key) {
         case 'gmail':
             return 'Gmail account';
+        case 'google':
+            return 'Google account';
         case 'telegram':
             return 'Telegram account';
         case 'gemini':
@@ -81,15 +83,17 @@ export function CredentialModal({
         setFormData((prev) => ({ ...prev, [key]: value }));
     };
 
-    const openGoogleOAuthPopup = (credentialId: number) => {
+    const openGoogleOAuthPopup = (credentialId: number, service: string) => {
         window.open(
             `/app/api/oauth/google/redirect?credential_id=${credentialId}`,
             'google_oauth',
             'width=550,height=650',
         );
 
+        const expectedType = service === 'google' ? 'GOOGLE_OAUTH_RESULT' : 'GMAIL_OAUTH_RESULT';
+
         const listener = async (event: MessageEvent) => {
-            if (event.data?.type === 'GMAIL_OAUTH_RESULT') {
+            if (event.data?.type === expectedType) {
                 window.removeEventListener('message', listener);
                 if (event.data.status === 'success') {
                     addToast(event.data.message, 'success', 4000);
@@ -137,8 +141,8 @@ export function CredentialModal({
             addToast('اعتبارنامه با موفقیت ذخیره شد.', 'success', 2500);
             onCreated(res.data);
 
-            if (definition.key === 'gmail') {
-                openGoogleOAuthPopup(res.data.id);
+            if (definition.key === 'gmail' || definition.key === 'google') {
+                openGoogleOAuthPopup(res.data.id, definition.key);
             }
 
             onClose();
@@ -251,7 +255,10 @@ export function CredentialModal({
         })();
 
         return (
-            <div key={key} className="space-y-1.5">
+            <div
+                key={key}
+                className={`space-y-2 ${field.type === 'textarea' || field.type === 'code' ? 'sm:col-span-2' : ''}`}
+            >
                 <label className="text-xs font-semibold text-content-main">
                     {label}
                 </label>
@@ -267,17 +274,17 @@ export function CredentialModal({
                 onClose={() => {
                     if (!pendingDelete) onClose();
                 }}
-                maxWidth="max-w-xl"
+                maxWidth="max-w-3xl"
             >
-                <div className="p-6" dir="rtl">
-                    <div className="flex items-center justify-between border-b border-line-border/60 pb-4 mb-5">
+                <div className="p-7 sm:p-8" dir="rtl">
+                    <div className="flex items-center justify-between gap-6 border-b border-line-border/60 pb-5 mb-6">
                         <div className="flex items-center gap-3">
                             <div className="flex size-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-500">
                                 <Icon name="key" className="size-5" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-content-main">{definition.name}</h3>
-                                <p className="text-[11px] text-content-muted mt-0.5">{definition.description}</p>
+                                <h3 className="text-base font-bold text-content-main">{definition.name}</h3>
+                                <p className="text-xs text-content-muted mt-1">{definition.description}</p>
                             </div>
                         </div>
 
@@ -314,7 +321,7 @@ export function CredentialModal({
                     )}
 
                     {view === 'create' ? (
-                        <form onSubmit={handleCreate} autoComplete="off" className="space-y-4">
+                        <form onSubmit={handleCreate} autoComplete="off" className="space-y-6">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-content-main">
                                     نام حساب
@@ -333,12 +340,14 @@ export function CredentialModal({
                                 />
                             </div>
 
-                            {Object.entries(definition.schema).map(([key, field]) =>
-                                renderField(key, field),
-                            )}
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                {Object.entries(definition.schema).map(([key, field]) =>
+                                    renderField(key, field),
+                                )}
+                            </div>
 
-                            {definition.key === 'gmail' && (
-                                <div className="space-y-2 rounded-xl border border-line-border/70 bg-surface-card p-3">
+                            {(definition.key === 'gmail' || definition.key === 'google') && (
+                                <div className="space-y-2.5 rounded-xl border border-line-border/70 bg-surface-card p-4">
                                     <div className="flex items-center justify-between">
                                         <span className="text-xs font-semibold text-content-main">Redirect URI</span>
                                         <span className="text-[10px] text-content-muted">برای تنظیم در Google Cloud Console</span>
@@ -349,7 +358,7 @@ export function CredentialModal({
                                             dir="ltr"
                                             value={`${window.location.origin}/oauth/google/callback`}
                                             onFocus={(e) => e.currentTarget.select()}
-                                            className="w-full rounded-lg border border-line-border bg-field px-3 py-1.5 font-mono text-xs text-content-main select-all focus:outline-none"
+                                            className="w-full rounded-lg border border-line-border bg-field px-3.5 py-2.5 font-mono text-xs text-content-main select-all focus:outline-none"
                                         />
                                         <button
                                             type="button"
@@ -384,7 +393,7 @@ export function CredentialModal({
                             </div>
                         </form>
                     ) : (
-                        <div className="space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar pe-1">
+                        <div className="space-y-2.5 max-h-[28rem] overflow-y-auto custom-scrollbar pe-1">
                             {existingItems.length === 0 ? (
                                 <p className="py-8 text-center text-xs text-content-muted">
                                     هنوز هیچ حسابی ثبت نشده است.
@@ -420,10 +429,10 @@ export function CredentialModal({
                                         </div>
 
                                         <div className="flex items-center gap-2 shrink-0">
-                                            {definition.key === 'gmail' && (
+                                            {(definition.key === 'gmail' || definition.key === 'google') && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => openGoogleOAuthPopup(item.id)}
+                                                    onClick={() => openGoogleOAuthPopup(item.id, definition.key)}
                                                     className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
                                                         item.is_connected
                                                             ? 'border border-line-border text-content-muted hover:text-content-main'

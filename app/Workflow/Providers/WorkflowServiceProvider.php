@@ -7,10 +7,12 @@ use App\Credentials\Registry\CredentialRegistry;
 use App\Credentials\Types\BasicAuthCredential;
 use App\Credentials\Types\GeminiCredential;
 use App\Credentials\Types\GmailCredential;
+use App\Credentials\Types\GoogleCredential;
 use App\Credentials\Types\HttpBearerCredential;
 use App\Credentials\Types\TelegramCredential;
 use App\Workflow\Nodes\Actions\GeminiNode;
 use App\Workflow\Nodes\Actions\GmailNode;
+use App\Workflow\Nodes\Actions\GoogleSheetsNode;
 use App\Workflow\Nodes\Actions\HttpRequestNode;
 use App\Workflow\Nodes\Actions\TelegramNode;
 use App\Workflow\Nodes\Ai\AiAgentNode;
@@ -45,6 +47,7 @@ class WorkflowServiceProvider extends ServiceProvider
                 GeminiNode::class,
                 TelegramNode::class,
                 GmailNode::class,
+                GoogleSheetsNode::class,
                 AiAgentNode::class,
                 GeminiChatModelNode::class,
                 SimpleMemoryNode::class,
@@ -63,6 +66,7 @@ class WorkflowServiceProvider extends ServiceProvider
                 BasicAuthCredential::class,
                 TelegramCredential::class,
                 GmailCredential::class,
+                GoogleCredential::class,
             ]);
         });
 

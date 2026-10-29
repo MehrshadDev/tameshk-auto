@@ -2,49 +2,25 @@
 
 namespace App\Credentials\Types;
 
-use App\Credentials\Contracts\CredentialTypeContract;
-use App\Credentials\DTOs\CredentialDefinition;
-use App\Credentials\Exceptions\InvalidCredentialException;
-
-class GmailCredential implements CredentialTypeContract
+class GmailCredential extends GoogleOAuthCredential
 {
     public static function key(): string
     {
         return 'gmail';
     }
 
-    public static function definition(): CredentialDefinition
+    public static function displayName(): string
     {
-        return new CredentialDefinition(
-            key: 'gmail',
-            name: 'Gmail',
-            description: 'اتصال به حساب گوگل از طریق OAuth2',
-            icon: 'brand:gmail',
-            schema: [
-                'client_id' => [
-                    'type'        => 'text',
-                    'label'       => 'Client ID',
-                    'required'    => true,
-                    'placeholder' => 'xxxxxx.apps.googleusercontent.com',
-                ],
-                'client_secret' => [
-                    'type'        => 'password',
-                    'label'       => 'Client Secret',
-                    'required'    => true,
-                    'placeholder' => 'GOCSPX-xxxxxx',
-                ],
-            ],
-        );
+        return 'Gmail';
     }
 
-    public function validate(array $data): void
+    public static function description(): string
     {
-        if (empty($data['client_id']) || ! is_string($data['client_id'])) {
-            throw InvalidCredentialException::because('فیلد Client ID الزامی است.');
-        }
+        return 'اتصال به حساب گوگل از طریق OAuth2';
+    }
 
-        if (empty($data['client_secret']) || ! is_string($data['client_secret'])) {
-            throw InvalidCredentialException::because('فیلد Client Secret الزامی است.');
-        }
+    public static function icon(): string
+    {
+        return 'brand:gmail';
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\OAuth;
 use App\Http\Controllers\Controller;
 use App\Models\Credential;
 use App\Workflow\Support\GmailClient;
+use App\Workflow\Support\GoogleSheetsClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -16,6 +17,19 @@ class GoogleOAuthController extends Controller
 {
     private const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+    private const USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo';
+
+    private const SCOPES = [
+        'gmail' => [
+            'https://mail.google.com/',
+            'https://www.googleapis.com/auth/userinfo.email',
+        ],
+        'google' => [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive.file',
+            'https://www.googleapis.com/auth/userinfo.email',
+        ],
+    ];
 
     public function redirect(Request $request): RedirectResponse
     {
@@ -31,17 +45,19 @@ class GoogleOAuthController extends Controller
             abort(400, 'فیلد Client ID ذخیره نشده است.');
         }
 
+        $scopes = self::SCOPES[$credential->type] ?? null;
+
+        if ($scopes === null) {
+            abort(400, 'این نوع اعتبارنامه از اتصال گوگل پشتیبانی نمی‌کند.');
+        }
+
         $state = Crypt::encryptString(json_encode([
             'credential_id' => $credential->id,
             'user_id' => $request->user()->id,
+            'type' => $credential->type,
         ]));
 
         $redirectUri = $this->getRedirectUri();
-
-        $scopes = [
-            'https://mail.google.com/',
-            'https://www.googleapis.com/auth/userinfo.email',
-        ];
 
         $params = http_build_query([
             'client_id' => $clientId,
@@ -63,7 +79,7 @@ class GoogleOAuthController extends Controller
 
         if (empty($code) || empty($state)) {
             return response(
-                $this->popupResponse(false, 'کد اعتبارسنجی گوگل دریافت نشد یا لغو شد.')
+                $this->popupResponse(false, 'کد اعتبارسنجی گوگل دریافت نشد یا لغو شد.', 'gmail')
             );
         }
 
@@ -71,9 +87,10 @@ class GoogleOAuthController extends Controller
             $payload = json_decode(Crypt::decryptString($state), true);
             $credentialId = (int) ($payload['credential_id'] ?? 0);
             $userId = (int) ($payload['user_id'] ?? 0);
+            $type = (string) ($payload['type'] ?? 'gmail');
         } catch (Throwable) {
             return response(
-                $this->popupResponse(false, 'توکن امنیتی State نامعتبر است.')
+                $this->popupResponse(false, 'توکن امنیتی State نامعتبر است.', 'gmail')
             );
         }
 
@@ -84,9 +101,11 @@ class GoogleOAuthController extends Controller
 
         if (! $credential) {
             return response(
-                $this->popupResponse(false, 'اعتبارنامه مربوطه یافت نشد.')
+                $this->popupResponse(false, 'اعتبارنامه مربوطه یافت نشد.', $type)
             );
         }
+
+        $type = $credential->type;
 
         $clientId = $credential->get('client_id');
         $clientSecret = $credential->get('client_secret');
@@ -101,14 +120,14 @@ class GoogleOAuthController extends Controller
             ]);
         } catch (Throwable $e) {
             return response(
-                $this->popupResponse(false, 'خطا در ارتباط با سرور گوگل: ' . $e->getMessage())
+                $this->popupResponse(false, 'خطا در ارتباط با سرور گوگل: ' . $e->getMessage(), $type)
             );
         }
 
         if ($tokenRes->failed()) {
             $desc = data_get($tokenRes->json(), 'error_description', $tokenRes->body());
             return response(
-                $this->popupResponse(false, 'دریافت توکن گوگل با خطا مواجه شد: ' . $desc)
+                $this->popupResponse(false, 'دریافت توکن گوگل با خطا مواجه شد: ' . $desc, $type)
             );
         }
 
@@ -126,20 +145,44 @@ class GoogleOAuthController extends Controller
 
         $credential->update(['data' => $credentialData]);
 
+        $email = $this->resolveEmail($credential, $type);
+
+        if ($email !== '') {
+            $credentialData['connected_email'] = $email;
+            $credential->update(['data' => $credentialData]);
+        }
+
+        $successMessage = $type === 'gmail'
+            ? 'حساب جیمیل با موفقیت متصل شد!'
+            : 'حساب گوگل با موفقیت متصل شد و دسترسی Google Sheets اعطا شد!';
+
+        return response(
+            $this->popupResponse(true, $successMessage, $type)
+        );
+    }
+
+    private function resolveEmail(Credential $credential, string $type): string
+    {
+        if ($type === 'gmail') {
+            try {
+                $profile = (new GmailClient($credential))->getProfile();
+                return (string) data_get($profile, 'emailAddress', '');
+            } catch (Throwable) {
+                return '';
+            }
+        }
+
         try {
-            $client = new GmailClient($credential);
-            $profile = $client->getProfile();
-            $email = data_get($profile, 'emailAddress', '');
-            if ($email !== '') {
-                $credentialData['connected_email'] = $email;
-                $credential->update(['data' => $credentialData]);
+            $token = (new GoogleSheetsClient($credential))->getValidAccessToken();
+            $response = Http::withToken($token)->timeout(10)->get(self::USERINFO_URL);
+
+            if ($response->successful()) {
+                return (string) data_get($response->json(), 'email', '');
             }
         } catch (Throwable) {
         }
 
-        return response(
-            $this->popupResponse(true, 'حساب جیمیل با موفقیت متصل شد!')
-        );
+        return '';
     }
 
     private function getRedirectUri(): string
@@ -153,9 +196,11 @@ class GoogleOAuthController extends Controller
         return $base . route('oauth.google.callback', [], false);
     }
 
-    private function popupResponse(bool $success, string $message): string
+    private function popupResponse(bool $success, string $message, string $type = 'gmail'): string
     {
         $statusStr = $success ? 'success' : 'error';
+        $eventType = $type === 'gmail' ? 'GMAIL_OAUTH_RESULT' : 'GOOGLE_OAUTH_RESULT';
+        $title = $type === 'gmail' ? 'اتصال حساب جیمیل' : 'اتصال حساب گوگل';
 
         return <<<HTML
 <!DOCTYPE html>
@@ -171,13 +216,13 @@ class GoogleOAuthController extends Controller
 </head>
 <body>
 <div class="box">
-    <h3>اتصال حساب جیمیل</h3>
+    <h3>{$title}</h3>
     <p class="msg">{$message}</p>
     <p style="font-size: 0.8rem; opacity: 0.6; margin-top: 1.5rem;">این پنجره به‌صورت خودکار بسته می‌شود...</p>
 </div>
 <script>
     if (window.opener) {
-        window.opener.postMessage({ type: 'GMAIL_OAUTH_RESULT', status: '{$statusStr}', message: '{$message}' }, '*');
+        window.opener.postMessage({ type: '{$eventType}', status: '{$statusStr}', message: '{$message}' }, '*');
         setTimeout(() => window.close(), 1500);
     }
 </script>

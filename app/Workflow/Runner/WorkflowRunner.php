@@ -25,7 +25,7 @@ class WorkflowRunner
     private const MAX_NODE_ITERATIONS = 50;
 
     private ?NodeRun $lastExecutedNodeRun = null;
-
+    private array $nodeOutputsByName = [];
 
     public function __construct(
         private readonly NodeRegistry $registry,
@@ -36,6 +36,7 @@ class WorkflowRunner
     public function run(Workflow $workflow, array $triggerData = [], ?callable $onNodeStatus = null): WorkflowRun
     {
         $workflow->load('nodes', 'edges');
+        $this->nodeOutputsByName = [];
 
         $run = WorkflowRun::create([
             'workflow_id' => $workflow->id,
@@ -84,6 +85,7 @@ class WorkflowRunner
     public function runSingleNode(Workflow $workflow, Node $node): NodeRun
     {
         $workflow->load('nodes', 'edges');
+        $this->nodeOutputsByName = [];
 
         $run = WorkflowRun::create([
             'workflow_id' => $workflow->id,
@@ -95,6 +97,8 @@ class WorkflowRunner
         $this->lastExecutedNodeRun = null;
         $graph = new WorkflowGraph($workflow);
         $input = $this->resolveInputForNode($workflow, $graph, $node);
+
+        $this->populateUpstreamOutputs($workflow, $graph, $node);
 
         try {
             $this->executeNode($node, $input, $run);
@@ -162,10 +166,30 @@ class WorkflowRunner
         }
     }
 
+    private function populateUpstreamOutputs(Workflow $workflow, WorkflowGraph $graph, Node $currentNode): void
+    {
+        foreach ($workflow->nodes as $n) {
+            if ($n->id === $currentNode->id) {
+                continue;
+            }
+
+            $lastRun = NodeRun::query()
+                ->where('node_id', $n->id)
+                ->where('status', 'success')
+                ->latest('id')
+                ->first();
+
+            if ($lastRun && is_array($lastRun->output_data)) {
+                $this->nodeOutputsByName[$n->name] = $lastRun->output_data;
+                $this->nodeOutputsByName[str_replace(' ', '_', $n->name)] = $lastRun->output_data;
+                $this->nodeOutputsByName["node_{$n->id}"] = $lastRun->output_data;
+            }
+        }
+    }
+
     private function executeGraph(Workflow $workflow, WorkflowRun $run, array $input, ?callable $onNodeStatus = null): void
     {
         $graph = new WorkflowGraph($workflow);
-
         $triggerNodes = $graph->triggerNodes();
 
         if ($triggerNodes->isEmpty()) {
@@ -203,6 +227,10 @@ class WorkflowRunner
 
             try {
                 $result = $this->executeNode($node, $inputData, $run, $onNodeStatus);
+
+                $this->nodeOutputsByName[$node->name] = $result->output;
+                $this->nodeOutputsByName[str_replace(' ', '_', $node->name)] = $result->output;
+                $this->nodeOutputsByName["node_{$node->id}"] = $result->output;
 
                 if ($onNodeStatus && $this->lastExecutedNodeRun) {
                     $onNodeStatus($node->id, 'node_success', $this->lastExecutedNodeRun);
@@ -261,9 +289,14 @@ class WorkflowRunner
             $this->guard->assertComplete($node, $run);
             $executor = $this->registry->make($node->type);
 
-            $resolvedConfig = TemplateEngine::render($node->config ?? [], [
-                'input' => $input,
-            ]);
+            $templateContext = [
+                'input'   => $input,
+                'trigger' => $run->trigger_data ?? [],
+                'nodes'   => $this->nodeOutputsByName,
+                ...$this->nodeOutputsByName,
+            ];
+
+            $resolvedConfig = TemplateEngine::render($node->config ?? [], $templateContext);
 
             $context = new NodeContext(
                 node: $node,

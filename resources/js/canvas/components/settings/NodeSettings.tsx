@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ConfigFieldInput } from '@canvas/components/settings/ConfigFieldInput';
 import { DataTreeViewer } from '@canvas/components/settings/DataTreeViewer';
 import { FieldShell } from '@canvas/components/settings/FieldShell';
@@ -10,6 +10,7 @@ import { isSpecialHandle } from '@canvas/lib/handles';
 import { isTelegramTrigger, isTestableTrigger, isGmailTrigger } from '@canvas/lib/triggers';
 import { useBackdropClose } from '@canvas/lib/useBackdropClose';
 import type { ConfigField } from '@canvas/types/graph';
+import type { FlowNode } from '@canvas/lib/graph';
 
 export function NodeSettingsPanel() {
     const panel = useWorkflowStore((state) => state.panel);
@@ -24,7 +25,9 @@ export function NodeSettingsPanel() {
 function NodeStudio({ nodeId }: { nodeId: string }) {
     const [mobileTab, setMobileTab] = useState<'input' | 'parameters' | 'output'>('parameters');
     const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+    const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
     const optionsContainerRef = useRef<HTMLDivElement>(null);
+    const inputScrollRef = useRef<HTMLDivElement>(null);
 
     const [leftWidth, setLeftWidth] = useState(380);
     const [rightWidth, setRightWidth] = useState(380);
@@ -50,6 +53,12 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     const addToast = useWorkflowStore((state) => state.addToast);
     const backdrop = useBackdropClose(closePanel);
     const isManualTrigger = allNodes.some((n) => isTestableTrigger(n.data.nodeType));
+
+    useEffect(() => {
+        if (inputScrollRef.current) {
+            inputScrollRef.current.scrollTop = 0;
+        }
+    }, [nodeId]);
 
     useEffect(() => {
         if (!optionsMenuOpen) return;
@@ -123,11 +132,79 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
         document.body.style.userSelect = 'none';
     };
 
+    const definition = definitions.find((item) => item.type === node?.data.nodeType);
+
+    const isSupplyNode =
+        definition !== undefined
+        && definition.inputs.length === 0
+        && definition.outputs.length > 0
+        && definition.outputs.every(isSpecialHandle);
+
+    const upstreamDataList = useMemo(() => {
+        if (!node) return [];
+
+        const hostIds = isSupplyNode
+            ? edges.filter((edge) => edge.source === nodeId).map((edge) => edge.target)
+            : [nodeId];
+
+        const visited = new Set<string>(hostIds);
+        const queue: { id: string; depth: number }[] = hostIds.map((id) => ({ id, depth: 0 }));
+        const orderedNodes: { sourceNode: FlowNode; depth: number }[] = [];
+
+        while (queue.length > 0) {
+            const current = queue.shift()!;
+            const parentEdges = edges.filter(
+                (edge) => edge.target === current.id && !isSpecialHandle(edge.targetHandle ?? 'main'),
+            );
+
+            for (const edge of parentEdges) {
+                if (!visited.has(edge.source)) {
+                    visited.add(edge.source);
+                    const foundNode = allNodes.find((n) => n.id === edge.source);
+                    if (foundNode) {
+                        orderedNodes.push({ sourceNode: foundNode, depth: current.depth + 1 });
+                        queue.push({ id: foundNode.id, depth: current.depth + 1 });
+                    }
+                }
+            }
+        }
+
+        const reversedRuns = [...(lastRun?.node_runs ?? [])].reverse();
+
+        return orderedNodes.map(({ sourceNode, depth }) => {
+            const sourceDbId = ids[sourceNode.id] ?? Number(sourceNode.id);
+            const sourceRun = reversedRuns.find((r) => r.node_id === sourceDbId);
+            const sourceDef = definitions.find((d) => d.type === sourceNode.data.nodeType);
+
+            return {
+                sourceNode,
+                sourceDef,
+                depth,
+                outputData: sourceRun?.output_data ?? null,
+                status: sourceRun?.status ?? null,
+            };
+        });
+    }, [node, nodeId, isSupplyNode, edges, allNodes, lastRun, ids, definitions]);
+
+    const combinedIncomingContext = useMemo(() => {
+        const nodesMap: Record<string, unknown> = {};
+        upstreamDataList.forEach((item) => {
+            if (item.outputData !== null && item.outputData !== undefined) {
+                nodesMap[item.sourceNode.data.label] = item.outputData;
+                nodesMap[item.sourceNode.data.label.replace(/\s+/g, '_')] = item.outputData;
+            }
+        });
+
+        return {
+            input: upstreamDataList[0]?.outputData ?? undefined,
+            nodes: nodesMap,
+        };
+    }, [upstreamDataList]);
+
     if (!node) {
         return null;
     }
 
-    const definition = definitions.find((item) => item.type === node.data.nodeType);
     const { iconName, iconStyle } = nodeAppearance(definition);
 
     const isTrigger = definition?.category === 'trigger';
@@ -136,37 +213,22 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
 
     const isExecuting = runningNodeId === nodeId;
     const dbId = ids[nodeId] ?? Number(nodeId);
-    const currentNodeRun = lastRun?.node_runs?.find((r) => r.node_id === dbId);
+    const currentNodeRun = [...(lastRun?.node_runs ?? [])].reverse().find((r) => r.node_id === dbId);
 
-    const isSupplyNode =
-        definition !== undefined
-        && definition.inputs.length === 0
-        && definition.outputs.length > 0
-        && definition.outputs.every(isSpecialHandle);
+    const isNodeCardOpen = (id: string, index: number) => {
+        if (id in expandedNodes) {
+            return expandedNodes[id];
+        }
+        return index === 0;
+    };
 
-    const hostIds = isSupplyNode
-        ? edges.filter((edge) => edge.source === nodeId).map((edge) => edge.target)
-        : [nodeId];
-
-    const incomingEdges = edges.filter(
-        (edge) => hostIds.includes(edge.target) && !isSpecialHandle(edge.targetHandle ?? 'main'),
-    );
-    const incomingSourceNodes = incomingEdges
-        .map((edge) => allNodes.find((n) => n.id === edge.source))
-        .filter(Boolean);
-
-    const incomingDataList = incomingSourceNodes.map((sourceNode) => {
-        const sourceDbId = sourceNode ? (ids[sourceNode.id] ?? Number(sourceNode.id)) : null;
-        const sourceRun = lastRun?.node_runs?.find((r) => r.node_id === sourceDbId);
-
-        return {
-            sourceNode,
-            outputData: sourceRun?.output_data ?? null,
-            status: sourceRun?.status ?? null,
-        };
-    });
-
-    const primaryIncomingData = incomingDataList[0]?.outputData ?? undefined;
+    const toggleNodeCard = (id: string, index: number) => {
+        const currentOpen = isNodeCardOpen(id, index);
+        setExpandedNodes((prev) => ({
+            ...prev,
+            [id]: !currentOpen,
+        }));
+    };
 
     const restoreName = () => {
         if (node.data.label.trim() === '') {
@@ -348,39 +410,92 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                         <Icon name="brackets" className="size-4 text-primary" />
                                         داده‌های ورودی (Input)
                                     </span>
+                                    {upstreamDataList.length > 0 && (
+                                        <span className="rounded-md bg-line-border/60 px-2 py-0.5 text-[10px] font-semibold text-content-muted">
+                                            {upstreamDataList.length} نود قبلی
+                                        </span>
+                                    )}
                                 </div>
 
-                                <div className="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 select-text">
-                                    {incomingDataList.length === 0 ? (
+                                <div
+                                    ref={inputScrollRef}
+                                    className="custom-scrollbar flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 select-text"
+                                >
+                                    {upstreamDataList.length === 0 ? (
                                         <div className="py-16 text-center text-xs text-content-muted space-y-2">
                                             <Icon name="link-off" className="mx-auto size-7 opacity-30" />
                                             <p>نود قبلی به این نود متصل نیست.</p>
                                         </div>
                                     ) : (
-                                        incomingDataList.map((item, idx) => (
-                                            <div key={idx} className="space-y-2.5 rounded-2xl border border-line-border/80 bg-surface-raised p-3.5 shadow-xs">
-                                                <div className="flex items-center justify-between border-b border-line-border/60 pb-2">
-                                                    <span className="text-xs font-bold text-content-main truncate">
-                                                        {item.sourceNode?.data.label}
-                                                    </span>
-                                                    {item.status && (
-                                                        <span
-                                                            className={`size-2.5 rounded-full ${
-                                                                item.status === 'success' ? 'bg-emerald-500' : 'bg-primary'
-                                                            }`}
-                                                        />
+                                        upstreamDataList.map((item, idx) => {
+                                            const isOpen = isNodeCardOpen(item.sourceNode.id, idx);
+                                            const { iconName: srcIcon, iconStyle: srcStyle } = nodeAppearance(item.sourceDef);
+                                            const basePath = idx === 0
+                                                ? 'input'
+                                                : `$('${item.sourceNode.data.label}').item.json`;
+
+                                            return (
+                                                <div
+                                                    key={item.sourceNode.id}
+                                                    className="overflow-hidden rounded-2xl border border-line-border/80 bg-surface-raised shadow-xs transition-all"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleNodeCard(item.sourceNode.id, idx)}
+                                                        className="flex w-full items-center justify-between gap-2.5 px-3.5 py-2.5 text-start transition hover:bg-surface-card/70"
+                                                    >
+                                                        <div className="flex min-w-0 items-center gap-2.5">
+                                                            <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${srcStyle}`}>
+                                                                <Icon name={srcIcon} className="size-4" />
+                                                            </span>
+                                                            <div className="min-w-0">
+                                                                <span dir="auto" className="block truncate text-xs font-bold text-content-main">
+                                                                    {item.sourceNode.data.label}
+                                                                </span>
+                                                                <span className="block text-[10px] text-content-muted">
+                                                                    {idx === 0 ? 'نود قبلی مستقیم' : `${idx + 1} مرحله قبل`}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex shrink-0 items-center gap-2">
+                                                            {item.status && (
+                                                                <span
+                                                                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
+                                                                        item.status === 'success'
+                                                                            ? 'bg-emerald-500/10 text-emerald-500'
+                                                                            : 'bg-primary/10 text-primary'
+                                                                    }`}
+                                                                >
+                                                                    {item.status === 'success' ? 'موفق' : 'خطا'}
+                                                                </span>
+                                                            )}
+                                                            <Icon
+                                                                name="chevron-down"
+                                                                className={`size-4 text-content-muted transition-transform duration-200 ${
+                                                                    isOpen ? 'rotate-180 text-primary' : ''
+                                                                }`}
+                                                            />
+                                                        </div>
+                                                    </button>
+
+                                                    {isOpen && (
+                                                        <div className="border-t border-line-border/60 p-3.5 bg-surface-card/30">
+                                                            {item.outputData ? (
+                                                                <DataTreeViewer
+                                                                    data={item.outputData}
+                                                                    basePath={basePath}
+                                                                />
+                                                            ) : (
+                                                                <p className="py-4 text-center text-[11px] text-content-muted">
+                                                                    داده‌ای از این نود ثبت نشده است. ابتدا آن را اجرا کنید.
+                                                                </p>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
-
-                                                {item.outputData ? (
-                                                    <DataTreeViewer data={item.outputData} basePath="input" />
-                                                ) : (
-                                                    <p className="py-4 text-center text-[11px] text-content-muted">
-                                                        داده‌ای از نود قبلی ثبت نشده است.
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
                             </section>
@@ -440,7 +555,7 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                                     id={id}
                                                     field={field}
                                                     value={node.data.config[key] ?? field.default ?? null}
-                                                    incomingData={primaryIncomingData}
+                                                    incomingData={combinedIncomingContext}
                                                     fullConfig={node.data.config}
                                                     onChange={(value) =>
                                                         updateNode(node.id, { config: { ...node.data.config, [key]: value } })
@@ -473,7 +588,7 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                                     id={id}
                                                     field={field}
                                                     value={node.data.config[key] ?? field.default ?? null}
-                                                    incomingData={primaryIncomingData}
+                                                    incomingData={combinedIncomingContext}
                                                     fullConfig={node.data.config}
                                                     onChange={(value) =>
                                                         updateNode(node.id, { config: { ...node.data.config, [key]: value } })
@@ -583,7 +698,7 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                     <Icon name="clock" className="mx-auto size-7 opacity-30" />
                                     <p>
                                         {!isManualTrigger
-                                            ? 'ورکفلو را از طریق ورودی مربوطه (مانند تست گفتگو) اجرا کنید تا خروجی نمایش داده شود.'
+                                            ? 'ورکفلو را از طریق ورودی مربوطه اجرا کنید تا خروجی نمایش داده شود.'
                                             : 'این نود هنوز در تست اجرا نشده است.'}
                                     </p>
                                 </div>

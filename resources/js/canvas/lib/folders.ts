@@ -63,6 +63,13 @@ export const FOLDERS_CONFIG: Record<string, FolderItem> = {
         icon: 'tools',
         iconClass: 'bg-amber-500/10 text-amber-500',
     },
+    'ai/gemini': {
+        id: 'ai/gemini',
+        title: 'Google Gemini',
+        description: 'تولید متن و تصویر، تحلیل صوت، ویدیو، اسناد و مخازن جستجوی فایل',
+        icon: 'brand:gemini',
+        iconClass: 'bg-blue-500/10 text-blue-500',
+    },
     'action/telegram': {
         id: 'action/telegram',
         title: 'Telegram',
@@ -76,6 +83,13 @@ export const FOLDERS_CONFIG: Record<string, FolderItem> = {
         description: 'ارسال، پاسخ، جستجو و مدیریت ایمیل‌های حساب گوگل',
         icon: 'brand:gmail',
         iconClass: 'bg-rose-500/10 text-rose-500',
+    },
+    'action/google-sheets': {
+        id: 'action/google-sheets',
+        title: 'Google Sheets',
+        description: 'خواندن، افزودن، به‌روزرسانی و پاک‌کردن داده‌ها در اسپردشیت گوگل',
+        icon: 'brand:google-sheets',
+        iconClass: 'bg-emerald-500/10 text-emerald-500',
     },
 };
 

@@ -19,41 +19,107 @@ type ConfigFieldInputProps = {
     fullConfig?: Record<string, unknown>;
 };
 
-const resolveExpression = (data: unknown, text: string): { found: boolean; value: unknown } => {
-    const matches = Array.from(text.matchAll(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g));
+const getByPath = (source: unknown, path: string): { found: boolean; value: unknown } => {
+    if (!path) {
+        return { found: source !== undefined, value: source };
+    }
+
+    const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+    let current: unknown = source;
+
+    for (const part of parts) {
+        if (current !== null && current !== undefined && typeof current === 'object' && part in (current as Record<string, unknown>)) {
+            current = (current as Record<string, unknown>)[part];
+        } else {
+            return { found: false, value: undefined };
+        }
+    }
+
+    return { found: true, value: current };
+};
+
+const resolveExpression = (contextData: unknown, text: string): { found: boolean; value: unknown } => {
+    const matches = Array.from(text.matchAll(/\{\{\s*(.+?)\s*\}\}/g));
 
     if (matches.length === 0) {
         return { found: true, value: undefined };
     }
 
+    const isStructuredContext =
+        contextData !== null
+        && typeof contextData === 'object'
+        && ('input' in (contextData as Record<string, unknown>) || 'nodes' in (contextData as Record<string, unknown>));
+
+    const inputObj = isStructuredContext ? (contextData as Record<string, unknown>).input : contextData;
+    const nodesMap = isStructuredContext
+        ? ((contextData as Record<string, unknown>).nodes as Record<string, unknown> | undefined) ?? {}
+        : {};
+
     let allFound = true;
     let lastValue: unknown = undefined;
 
     for (const match of matches) {
-        const expression = match[1].trim();
+        const expr = match[1].trim();
 
-        if (expression !== 'input' && !expression.startsWith('input.')) {
-            allFound = false;
+        const nodeSelectorMatch = expr.match(/^\$\(['"](.+?)['"]\)(?:\.item)?(?:\.json)?(?:\.(.+))?$/);
+        if (nodeSelectorMatch) {
+            const nodeName = nodeSelectorMatch[1];
+            const propPath = nodeSelectorMatch[2] ?? '';
+            const targetNodeData = nodesMap[nodeName] ?? nodesMap[nodeName.replace(/\s+/g, '_')];
+
+            if (targetNodeData === undefined) {
+                allFound = false;
+                continue;
+            }
+
+            const res = getByPath(targetNodeData, propPath);
+            if (res.found) {
+                lastValue = res.value;
+            } else {
+                allFound = false;
+            }
             continue;
         }
 
-        const parts = expression === 'input' ? [] : expression.slice('input.'.length).split('.');
+        if (expr.startsWith('nodes.')) {
+            const rest = expr.slice('nodes.'.length);
+            const dotIndex = rest.indexOf('.');
+            const nodeKey = dotIndex === -1 ? rest : rest.slice(0, dotIndex);
+            const propPath = dotIndex === -1 ? '' : rest.slice(dotIndex + 1);
+            const targetNodeData = nodesMap[nodeKey];
 
-        let current: unknown = data;
-        let stepFound = true;
-
-        for (const part of parts) {
-            if (current !== null && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
-                current = (current as Record<string, unknown>)[part];
+            const res = getByPath(targetNodeData, propPath);
+            if (res.found) {
+                lastValue = res.value;
             } else {
-                stepFound = false;
+                allFound = false;
+            }
+            continue;
+        }
+
+        const cleanInputPath = expr === 'input'
+            ? ''
+            : expr.startsWith('input.')
+                ? expr.slice('input.'.length)
+                : expr;
+
+        const directRes = getByPath(inputObj, cleanInputPath);
+        if (directRes.found) {
+            lastValue = directRes.value;
+            continue;
+        }
+
+        let foundInUpstream = false;
+        for (const nodeOutput of Object.values(nodesMap)) {
+            const upRes = getByPath(nodeOutput, cleanInputPath);
+            if (upRes.found) {
+                lastValue = upRes.value;
+                foundInUpstream = true;
                 break;
             }
         }
 
-        if (stepFound) {
-            lastValue = current;
-        } else {
+        if (!foundInUpstream) {
             allFound = false;
         }
     }
@@ -125,7 +191,15 @@ export function ConfigFieldInput(props: ConfigFieldInputProps) {
     const isExpression = isExpressionMode || hasExpressionSyntax;
     const hasText = text.trim() !== '';
 
-    const hasIncomingRun = incomingData !== undefined && incomingData !== null;
+    const hasIncomingRun = (() => {
+        if (!incomingData || typeof incomingData !== 'object') return false;
+        if ('input' in incomingData || 'nodes' in incomingData) {
+            const structured = incomingData as { input?: unknown; nodes?: Record<string, unknown> };
+            return structured.input !== undefined || Object.keys(structured.nodes ?? {}).length > 0;
+        }
+        return true;
+    })();
+
     const evaluation = isExpression && hasText && hasIncomingRun ? resolveExpression(incomingData, text) : null;
     const isValid = evaluation ? evaluation.found : true;
 
