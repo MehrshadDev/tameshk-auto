@@ -3,6 +3,7 @@ import { ConditionsEditor } from '@canvas/components/settings/ConditionsEditor';
 import { CredentialSelect } from '@canvas/components/settings/CredentialSelect';
 import { inputClass } from '@canvas/components/settings/fieldStyles';
 import { KeyValueEditor } from '@canvas/components/settings/KeyValueEditor';
+import { SetFieldsEditor } from '@canvas/components/settings/SetFieldsEditor';
 import { ModelSelect } from '@canvas/components/settings/ModelSelect';
 import { PasswordField } from '@canvas/components/ui/PasswordField';
 import { Select } from '@canvas/components/ui/Select';
@@ -234,6 +235,10 @@ export function ConfigFieldInput(props: ConfigFieldInputProps) {
         return <ConditionsEditor value={value} onChange={onChange} incomingData={incomingData} />;
     }
 
+    if (field.type === 'set_fields') {
+        return <SetFieldsEditor value={value} onChange={onChange} />;
+    }
+
     if (field.type === 'keyvalue') {
         return <KeyValueEditor value={value} onChange={onChange} />;
     }
@@ -283,6 +288,38 @@ export function ConfigFieldInput(props: ConfigFieldInputProps) {
 
     if (field.type === 'number') {
         return <NumberField {...props} />;
+    }
+
+    if (field.type === 'boolean') {
+        const checked = value === true || value === 'true' || value === '1' || value === 1;
+
+        return (
+            <button
+                id={id}
+                type="button"
+                role="switch"
+                aria-checked={checked}
+                onClick={() => onChange(!checked)}
+                className="group flex w-full items-center justify-between rounded-xl border border-line-border bg-surface-card/50 px-3.5 py-2.5 text-start transition hover:border-content-muted/40"
+            >
+                <span className="text-xs font-medium text-content-main">
+                    {field.label}
+                </span>
+
+                <span
+                    dir="ltr"
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 ${
+                        checked ? 'bg-emerald-500' : 'bg-line-border'
+                    }`}
+                >
+                    <span
+                        className={`inline-block size-3.5 transform rounded-full bg-white shadow-xs transition-transform duration-200 ${
+                            checked ? 'translate-x-4.5' : 'translate-x-0.5'
+                        }`}
+                    />
+                </span>
+            </button>
+        );
     }
 
     if (field.type === 'select') {

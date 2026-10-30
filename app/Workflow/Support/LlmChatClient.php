@@ -17,33 +17,35 @@ final class LlmChatClient
      */
     public static function chat(
         Credential $credential,
-        string $model,
-        array $messages,
-        ?string $systemPrompt = null,
-        float $temperature = 0.4,
-        array $tools = [],
-    ): array {
+        string     $model,
+        array      $messages,
+        ?string    $systemPrompt = null,
+        float      $temperature = 0.4,
+        array      $tools = [],
+    ): array
+    {
         return match ($credential->type) {
-            'gemini'     => self::chatGemini($credential, $model, $messages, $systemPrompt, $temperature, $tools),
-            'anthropic'  => self::chatAnthropic($credential, $model, $messages, $systemPrompt, $temperature, $tools),
-            'openai'     => self::chatOpenAiCompatible($credential, $model, $messages, $systemPrompt, $temperature, $tools, 'https://api.openai.com/v1'),
-            'deepseek'   => self::chatOpenAiCompatible($credential, $model, $messages, $systemPrompt, $temperature, $tools, 'https://api.deepseek.com/v1'),
-            'groq'       => self::chatOpenAiCompatible($credential, $model, $messages, $systemPrompt, $temperature, $tools, 'https://api.groq.com/openai/v1'),
+            'gemini' => self::chatGemini($credential, $model, $messages, $systemPrompt, $temperature, $tools),
+            'anthropic' => self::chatAnthropic($credential, $model, $messages, $systemPrompt, $temperature, $tools),
+            'openai' => self::chatOpenAiCompatible($credential, $model, $messages, $systemPrompt, $temperature, $tools, 'https://api.openai.com/v1'),
+            'deepseek' => self::chatOpenAiCompatible($credential, $model, $messages, $systemPrompt, $temperature, $tools, 'https://api.deepseek.com/v1'),
+            'groq' => self::chatOpenAiCompatible($credential, $model, $messages, $systemPrompt, $temperature, $tools, 'https://api.groq.com/openai/v1'),
             'openrouter' => self::chatOpenAiCompatible($credential, $model, $messages, $systemPrompt, $temperature, $tools, 'https://openrouter.ai/api/v1'),
-            default      => throw NodeExecutionException::because("سرویس مدل چت پشتیبانی نمی‌شود: $credential->type"),
+            default => throw NodeExecutionException::because("سرویس مدل چت پشتیبانی نمی‌شود: $credential->type"),
         };
     }
 
     private static function chatGemini(
         Credential $credential,
-        string $model,
-        array $messages,
-        ?string $systemPrompt,
-        float $temperature,
-        array $tools,
-    ): array {
-        $apiKey = (string) $credential->get('api_key');
-        $baseUrl = rtrim((string) config('services.gemini.base_url', 'https://generativelanguage.googleapis.com'), '/');
+        string     $model,
+        array      $messages,
+        ?string    $systemPrompt,
+        float      $temperature,
+        array      $tools,
+    ): array
+    {
+        $apiKey = (string)$credential->get('api_key');
+        $baseUrl = rtrim((string)config('services.gemini.base_url', 'https://generativelanguage.googleapis.com'), '/');
         $endpoint = str_ends_with($baseUrl, '/v1beta')
             ? "$baseUrl/models/$model:generateContent"
             : "$baseUrl/v1beta/models/$model:generateContent";
@@ -57,10 +59,10 @@ final class LlmChatClient
 
             if ($msg['role'] === 'tool') {
                 $contents[] = [
-                    'role'  => 'user',
+                    'role' => 'user',
                     'parts' => [[
                         'functionResponse' => [
-                            'name'     => $msg['name'],
+                            'name' => $msg['name'],
                             'response' => is_array($msg['content']) ? $msg['content'] : ['result' => $msg['content']],
                         ],
                     ]],
@@ -69,13 +71,13 @@ final class LlmChatClient
             }
 
             $contents[] = [
-                'role'  => $msg['role'] === 'assistant' ? 'model' : 'user',
-                'parts' => [['text' => (string) ($msg['text'] ?? '')]],
+                'role' => $msg['role'] === 'assistant' ? 'model' : 'user',
+                'parts' => [['text' => (string)($msg['text'] ?? '')]],
             ];
         }
 
         $payload = [
-            'contents'         => $contents,
+            'contents' => $contents,
             'generationConfig' => ['temperature' => $temperature],
         ];
 
@@ -83,7 +85,7 @@ final class LlmChatClient
             $payload['system_instruction'] = ['parts' => [['text' => $systemPrompt]]];
         }
 
-        if (! empty($tools)) {
+        if (!empty($tools)) {
             $payload['tools'] = [['functionDeclarations' => $tools]];
         }
 
@@ -99,8 +101,8 @@ final class LlmChatClient
             throw NodeExecutionException::because(GeminiError::describe($response));
         }
 
-        $candidateContent = (array) data_get($response->json(), 'candidates.0.content', []);
-        $parts = (array) data_get($candidateContent, 'parts', []);
+        $candidateContent = (array)data_get($response->json(), 'candidates.0.content', []);
+        $parts = (array)data_get($candidateContent, 'parts', []);
 
         $toolCalls = [];
         $textParts = [];
@@ -109,9 +111,9 @@ final class LlmChatClient
             if (isset($part['functionCall'])) {
                 $fc = $part['functionCall'];
                 $toolCalls[] = [
-                    'id'   => 'call_' . uniqid(),
-                    'name' => (string) ($fc['name'] ?? ''),
-                    'args' => (array) ($fc['args'] ?? []),
+                    'id' => 'call_' . uniqid(),
+                    'name' => (string)($fc['name'] ?? ''),
+                    'args' => (array)($fc['args'] ?? []),
                 ];
             }
             if (isset($part['text'])) {
@@ -120,10 +122,10 @@ final class LlmChatClient
         }
 
         return [
-            'text'                  => trim(implode("\n", $textParts)),
-            'tool_calls'            => $toolCalls,
+            'text' => trim(implode("\n", $textParts)),
+            'tool_calls' => $toolCalls,
             'raw_assistant_message' => [
-                'role'       => 'assistant',
+                'role' => 'assistant',
                 'gemini_raw' => $candidateContent,
             ],
         ];
@@ -131,15 +133,16 @@ final class LlmChatClient
 
     private static function chatOpenAiCompatible(
         Credential $credential,
-        string $model,
-        array $messages,
-        ?string $systemPrompt,
-        float $temperature,
-        array $tools,
-        string $defaultBaseUrl,
-    ): array {
-        $apiKey = trim((string) $credential->get('api_key'));
-        $customBase = trim((string) $credential->get('base_url', ''));
+        string     $model,
+        array      $messages,
+        ?string    $systemPrompt,
+        float      $temperature,
+        array      $tools,
+        string     $defaultBaseUrl,
+    ): array
+    {
+        $apiKey = trim((string)$credential->get('api_key'));
+        $customBase = trim((string)$credential->get('base_url', ''));
         $baseUrl = rtrim($customBase !== '' ? $customBase : $defaultBaseUrl, '/');
         $endpoint = "$baseUrl/chat/completions";
 
@@ -157,9 +160,9 @@ final class LlmChatClient
 
             if ($msg['role'] === 'tool') {
                 $formattedMessages[] = [
-                    'role'         => 'tool',
+                    'role' => 'tool',
                     'tool_call_id' => $msg['tool_call_id'],
-                    'content'      => is_string($msg['content'])
+                    'content' => is_string($msg['content'])
                         ? $msg['content']
                         : json_encode($msg['content'], JSON_UNESCAPED_UNICODE),
                 ];
@@ -167,24 +170,24 @@ final class LlmChatClient
             }
 
             $formattedMessages[] = [
-                'role'    => $msg['role'] === 'model' ? 'assistant' : $msg['role'],
-                'content' => (string) ($msg['text'] ?? ''),
+                'role' => $msg['role'] === 'model' ? 'assistant' : $msg['role'],
+                'content' => (string)($msg['text'] ?? ''),
             ];
         }
 
         $payload = [
-            'model'       => $model,
-            'messages'    => $formattedMessages,
+            'model' => $model,
+            'messages' => $formattedMessages,
             'temperature' => $temperature,
         ];
 
-        if (! empty($tools)) {
-            $payload['tools'] = array_map(fn (array $tool) => [
-                'type'     => 'function',
+        if (!empty($tools)) {
+            $payload['tools'] = array_map(fn(array $tool) => [
+                'type' => 'function',
                 'function' => [
-                    'name'        => $tool['name'],
+                    'name' => $tool['name'],
                     'description' => $tool['description'],
-                    'parameters'  => self::normalizeJsonSchema($tool['parameters']),
+                    'parameters' => self::normalizeJsonSchema($tool['parameters']),
                 ],
             ], $tools);
         }
@@ -198,12 +201,12 @@ final class LlmChatClient
         }
 
         if ($response->failed()) {
-            throw NodeExecutionException::because(self::describeHttpError( ucfirst($credential->type), $response));
+            throw NodeExecutionException::because(self::describeHttpError(ucfirst($credential->type), $response));
         }
 
-        $message = (array) data_get($response->json(), 'choices.0.message', []);
-        $text = trim((string) ($message['content'] ?? ''));
-        $rawToolCalls = (array) ($message['tool_calls'] ?? []);
+        $message = (array)data_get($response->json(), 'choices.0.message', []);
+        $text = trim((string)($message['content'] ?? ''));
+        $rawToolCalls = (array)($message['tool_calls'] ?? []);
 
         $toolCalls = [];
         foreach ($rawToolCalls as $tc) {
@@ -211,17 +214,17 @@ final class LlmChatClient
             $decodedArgs = is_string($argsRaw) ? json_decode($argsRaw, true) : $argsRaw;
 
             $toolCalls[] = [
-                'id'   => (string) ($tc['id'] ?? ('call_' . uniqid())),
-                'name' => (string) data_get($tc, 'function.name', ''),
+                'id' => (string)($tc['id'] ?? ('call_' . uniqid())),
+                'name' => (string)data_get($tc, 'function.name', ''),
                 'args' => is_array($decodedArgs) ? $decodedArgs : [],
             ];
         }
 
         return [
-            'text'                  => $text,
-            'tool_calls'            => $toolCalls,
+            'text' => $text,
+            'tool_calls' => $toolCalls,
             'raw_assistant_message' => [
-                'role'       => 'assistant',
+                'role' => 'assistant',
                 'openai_raw' => $message,
             ],
         ];
@@ -229,13 +232,14 @@ final class LlmChatClient
 
     private static function chatAnthropic(
         Credential $credential,
-        string $model,
-        array $messages,
-        ?string $systemPrompt,
-        float $temperature,
-        array $tools,
-    ): array {
-        $apiKey = trim((string) $credential->get('api_key'));
+        string     $model,
+        array      $messages,
+        ?string    $systemPrompt,
+        float      $temperature,
+        array      $tools,
+    ): array
+    {
+        $apiKey = trim((string)$credential->get('api_key'));
         $endpoint = 'https://api.anthropic.com/v1/messages';
 
         $formattedMessages = [];
@@ -248,11 +252,11 @@ final class LlmChatClient
 
             if ($msg['role'] === 'tool') {
                 $formattedMessages[] = [
-                    'role'    => 'user',
+                    'role' => 'user',
                     'content' => [[
-                        'type'        => 'tool_result',
+                        'type' => 'tool_result',
                         'tool_use_id' => $msg['tool_call_id'],
-                        'content'     => is_string($msg['content'])
+                        'content' => is_string($msg['content'])
                             ? $msg['content']
                             : json_encode($msg['content'], JSON_UNESCAPED_UNICODE),
                     ]],
@@ -261,15 +265,15 @@ final class LlmChatClient
             }
 
             $formattedMessages[] = [
-                'role'    => in_array($msg['role'], ['assistant', 'model'], true) ? 'assistant' : 'user',
-                'content' => (string) ($msg['text'] ?? ''),
+                'role' => in_array($msg['role'], ['assistant', 'model'], true) ? 'assistant' : 'user',
+                'content' => (string)($msg['text'] ?? ''),
             ];
         }
 
         $payload = [
-            'model'       => $model,
-            'max_tokens'  => 4096,
-            'messages'    => $formattedMessages,
+            'model' => $model,
+            'max_tokens' => 4096,
+            'messages' => $formattedMessages,
             'temperature' => min(1.0, max(0.0, $temperature)),
         ];
 
@@ -277,17 +281,17 @@ final class LlmChatClient
             $payload['system'] = $systemPrompt;
         }
 
-        if (! empty($tools)) {
-            $payload['tools'] = array_map(fn (array $tool) => [
-                'name'         => $tool['name'],
-                'description'  => $tool['description'],
+        if (!empty($tools)) {
+            $payload['tools'] = array_map(fn(array $tool) => [
+                'name' => $tool['name'],
+                'description' => $tool['description'],
                 'input_schema' => self::normalizeJsonSchema($tool['parameters']),
             ], $tools);
         }
 
         try {
             $response = Http::withHeaders([
-                'x-api-key'         => $apiKey,
+                'x-api-key' => $apiKey,
                 'anthropic-version' => '2023-06-01',
             ])->timeout(90)->post($endpoint, $payload);
         } catch (Throwable $e) {
@@ -298,30 +302,30 @@ final class LlmChatClient
             throw NodeExecutionException::because(self::describeHttpError('Anthropic Claude', $response));
         }
 
-        $contentBlocks = (array) data_get($response->json(), 'content', []);
+        $contentBlocks = (array)data_get($response->json(), 'content', []);
         $textParts = [];
         $toolCalls = [];
 
         foreach ($contentBlocks as $block) {
             $type = $block['type'] ?? '';
             if ($type === 'text') {
-                $textParts[] = (string) ($block['text'] ?? '');
+                $textParts[] = (string)($block['text'] ?? '');
             } elseif ($type === 'tool_use') {
                 $toolCalls[] = [
-                    'id'   => (string) ($block['id'] ?? ('toolu_' . uniqid())),
-                    'name' => (string) ($block['name'] ?? ''),
-                    'args' => (array) ($block['input'] ?? []),
+                    'id' => (string)($block['id'] ?? ('toolu_' . uniqid())),
+                    'name' => (string)($block['name'] ?? ''),
+                    'args' => (array)($block['input'] ?? []),
                 ];
             }
         }
 
         return [
-            'text'                  => trim(implode("\n", $textParts)),
-            'tool_calls'            => $toolCalls,
+            'text' => trim(implode("\n", $textParts)),
+            'tool_calls' => $toolCalls,
             'raw_assistant_message' => [
-                'role'          => 'assistant',
+                'role' => 'assistant',
                 'anthropic_raw' => [
-                    'role'    => 'assistant',
+                    'role' => 'assistant',
                     'content' => $contentBlocks,
                 ],
             ],
@@ -343,7 +347,7 @@ final class LlmChatClient
         }
 
         if (($normalized['type'] ?? '') === 'object' && empty($normalized['properties'])) {
-            $normalized['properties'] = (object) [];
+            $normalized['properties'] = (object)[];
         }
 
         return $normalized;
@@ -352,7 +356,7 @@ final class LlmChatClient
     private static function describeHttpError(string $provider, Response $response): string
     {
         $status = $response->status();
-        $message = (string) (
+        $message = (string)(
             data_get($response->json(), 'error.message')
             ?? data_get($response->json(), 'message')
             ?? strip_tags($response->body())
@@ -360,10 +364,10 @@ final class LlmChatClient
 
         $hint = match ($status) {
             401, 403 => 'کلید API نامعتبر است یا دسترسی لازم را ندارد.',
-            402      => 'موجودی یا اعتبار حساب شما در این سرویس کافی نیست.',
-            404      => 'مدل انتخاب‌شده یافت نشد.',
-            429      => 'سقف درخواست‌ها (Rate Limit) پر شده است. کمی صبر کنید.',
-            default  => 'درخواست توسط سرویس هوش مصنوعی پذیرفته نشد.',
+            402 => 'موجودی یا اعتبار حساب شما در این سرویس کافی نیست.',
+            404 => 'مدل انتخاب‌شده یافت نشد.',
+            429 => 'سقف درخواست‌ها (Rate Limit) پر شده است. کمی صبر کنید.',
+            default => 'درخواست توسط سرویس هوش مصنوعی پذیرفته نشد.',
         };
 
         return "خطای $provider (HTTP $status): $hint\n" . mb_substr(trim($message), 0, 400);

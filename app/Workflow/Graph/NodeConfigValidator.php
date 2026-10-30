@@ -85,17 +85,24 @@ final class NodeConfigValidator
     private function check(array $field, mixed $value, Collection $credentials, bool $complete): ?string
     {
         return match ($field['type'] ?? null) {
-            'text', 'textarea', 'password', 'code' => $this->checkText($value),
-            'number'       => $this->checkNumber($field, $value, $complete),
-            'select'       => $complete ? $this->checkSelect($field, $value) : null,
-            'multiselect'  => $complete ? $this->checkMultiSelect($field, $value) : null,
-            'keyvalue'     => $this->checkKeyValue($value),
-            'credential'   => $complete ? $this->checkCredential($field, $value, $credentials) : null,
-            'model_select' => $this->checkModelSelect($value),
-            'dynamic_select' => $this->checkText($value),
-            'conditions'   => $this->checkConditions($value),
-            default        => 'نوع تنظیم پشتیبانی نمی‌شود.',
+            'text', 'textarea', 'password', 'code', 'dynamic_select' => $this->checkText($value),
+            'number'         => $this->checkNumber($field, $value, $complete),
+            'boolean'        => $this->checkBoolean($value),
+            'select'         => $complete ? $this->checkSelect($field, $value) : null,
+            'multiselect'    => $complete ? $this->checkMultiSelect($field, $value) : null,
+            'keyvalue'       => $this->checkKeyValue($value),
+            'credential'     => $complete ? $this->checkCredential($field, $value, $credentials) : null,
+            'model_select'   => $this->checkModelSelect($value),
+            'conditions'     => $this->checkConditions($value),
+            default          => 'نوع تنظیم پشتیبانی نمی‌شود.',
         };
+    }
+
+    private function checkBoolean(mixed $value): ?string
+    {
+        return is_bool($value) || in_array($value, [0, 1, '0', '1', 'true', 'false'], true)
+            ? null
+            : 'مقدار نامعتبر است.';
     }
 
     private function checkMultiSelect(array $field, mixed $value): ?string

@@ -5,16 +5,19 @@ type FieldShellProps = {
     label: string;
     required?: boolean;
     help?: string;
+    hideLabel?: boolean;
     children: ReactNode;
 };
 
-export function FieldShell({ label, required, help, children }: FieldShellProps) {
+export function FieldShell({ label, required, help, hideLabel = false, children }: FieldShellProps) {
     return (
         <div className="space-y-2">
-            <span className="flex items-center gap-1 text-xs font-semibold text-content-main select-none w-fit cursor-default">
-                {label}
-                {required && <span className="text-primary">*</span>}
-            </span>
+            {!hideLabel && label && (
+                <span className="flex items-center gap-1 text-xs font-semibold text-content-main select-none w-fit cursor-default">
+                    {label}
+                    {required && <span className="text-primary">*</span>}
+                </span>
+            )}
 
             {children}
 

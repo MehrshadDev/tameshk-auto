@@ -552,7 +552,14 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                         const id = `studio-field-${node.id}-${key}`;
 
                                         return (
-                                            <FieldShell key={key} id={id} label={field.label ?? key} required={field.required} help={field.help}>
+                                            <FieldShell
+                                                key={key}
+                                                id={id}
+                                                label={field.label ?? key}
+                                                required={field.required}
+                                                help={field.help}
+                                                hideLabel={field.type === 'boolean'}
+                                            >
                                                 <ConfigFieldInput
                                                     id={id}
                                                     field={field}

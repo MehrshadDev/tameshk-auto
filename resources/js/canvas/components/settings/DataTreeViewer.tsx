@@ -170,8 +170,19 @@ function TreeNode({
 
     const expression = `{{ ${path} }}`;
 
+    const inferredFieldType = isArray
+        ? 'array'
+        : isObject
+            ? 'object'
+            : typeof value === 'number'
+                ? 'number'
+                : typeof value === 'boolean'
+                    ? 'boolean'
+                    : 'string';
+
     const handleDragStart = (e: React.DragEvent) => {
         e.dataTransfer.setData('text/plain', expression);
+        e.dataTransfer.setData('application/x-tameshk-type', inferredFieldType);
         e.dataTransfer.effectAllowed = 'copy';
     };
 
