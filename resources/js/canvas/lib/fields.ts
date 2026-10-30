@@ -1,11 +1,16 @@
 import type { ConfigField } from '@canvas/types/graph';
 
-const RTL = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+const FIRST_LETTER_RTL = /^[^\p{L}]*[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/u;
 
 export type SelectOption = { value: string; label: string };
 
-export const textDir = (value: string, fallback = ''): 'rtl' | 'ltr' =>
-    RTL.test(value || fallback) ? 'rtl' : 'ltr';
+export const textDir = (value: string, fallback = ''): 'rtl' | 'ltr' => {
+    const sample = value.trim() !== '' ? value.trim() : fallback.trim();
+    if (sample === '') {
+        return 'rtl';
+    }
+    return FIRST_LETTER_RTL.test(sample) ? 'rtl' : 'ltr';
+};
 
 export const asString = (value: unknown): string =>
     typeof value === 'string' ? value : value === null || value === undefined ? '' : String(value);

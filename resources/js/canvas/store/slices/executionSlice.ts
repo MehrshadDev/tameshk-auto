@@ -150,6 +150,7 @@ export const createExecutionSlice: Slice<ExecutionSlice> = (set, get) => ({
 
         if (saveStatus !== 'saved') {
             await save();
+            if (get().saveStatus === 'error') return;
         }
 
         const currentIds = get().ids;

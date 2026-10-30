@@ -18,19 +18,10 @@ final class NodeConfigGuard
     {
         $definition = $this->registry->resolve($node->type)::definition();
         $credentials = $run->workflow->user->credentials()->pluck('type', 'id');
-        $errors = $this->validator->errors($definition, $node->config ?? [], $credentials);
+        $messages = $this->validator->nodeMessages($node, $definition, $credentials);
 
-        if ($errors === []) {
-            return;
+        if ($messages !== []) {
+            throw NodeExecutionException::because(implode("\n", $messages));
         }
-
-        $lines = [];
-
-        foreach ($errors as $key => $message) {
-            $label = $definition->configSchema[$key]['label'] ?? $key;
-            $lines[] = "نود «{$node->name}» ← فیلد «{$label}»: {$message}";
-        }
-
-        throw NodeExecutionException::because(implode("\n", $lines));
     }
 }

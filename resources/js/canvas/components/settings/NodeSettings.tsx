@@ -1,16 +1,24 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ConfigFieldInput } from '@canvas/components/settings/ConfigFieldInput';
-import { DataTreeViewer } from '@canvas/components/settings/DataTreeViewer';
 import { FieldShell } from '@canvas/components/settings/FieldShell';
+import { NodeInputPanel } from '@canvas/components/settings/NodeInputPanel';
+import { NodeOutputPanel } from '@canvas/components/settings/NodeOutputPanel';
 import { TriggerSettings } from '@canvas/components/settings/TriggerSettings';
 import { Icon } from '@canvas/components/ui/Icon';
-import { nodeAppearance } from '@canvas/lib/nodeStyles';
-import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
-import { isSpecialHandle } from '@canvas/lib/handles';
-import { isTelegramTrigger, isTestableTrigger, isGmailTrigger, isSheetsTrigger } from '@canvas/lib/triggers';
-import { useBackdropClose } from '@canvas/lib/useBackdropClose';
-import type { ConfigField } from '@canvas/types/graph';
 import type { FlowNode } from '@canvas/lib/graph';
+import { isSpecialHandle } from '@canvas/lib/handles';
+import { nodeAppearance } from '@canvas/lib/nodeStyles';
+import {
+    isGmailTrigger,
+    isScheduleTrigger,
+    isSheetsTrigger,
+    isTelegramTrigger,
+    isTestableTrigger,
+    isWebhookTrigger,
+} from '@canvas/lib/triggers';
+import { useBackdropClose } from '@canvas/lib/useBackdropClose';
+import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
+import type { ConfigField } from '@canvas/types/graph';
 
 export function NodeSettingsPanel() {
     const panel = useWorkflowStore((state) => state.panel);
@@ -25,9 +33,7 @@ export function NodeSettingsPanel() {
 function NodeStudio({ nodeId }: { nodeId: string }) {
     const [mobileTab, setMobileTab] = useState<'input' | 'parameters' | 'output'>('parameters');
     const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
-    const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
     const optionsContainerRef = useRef<HTMLDivElement>(null);
-    const inputScrollRef = useRef<HTMLDivElement>(null);
 
     const [leftWidth, setLeftWidth] = useState(380);
     const [rightWidth, setRightWidth] = useState(380);
@@ -35,10 +41,10 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
 
     const isDraggingLeft = useRef(false);
     const isDraggingRight = useRef(false);
-    const isFullWorkflowRunning = useWorkflowStore((state) => state.isRunning);
     const dragStartX = useRef(0);
     const dragStartWidth = useRef(0);
 
+    const isFullWorkflowRunning = useWorkflowStore((state) => state.isRunning);
     const node = useWorkflowStore((state) => state.nodes.find((item) => item.id === nodeId));
     const allNodes = useWorkflowStore((state) => state.nodes);
     const edges = useWorkflowStore((state) => state.edges);
@@ -50,15 +56,9 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     const runningNodeId = useWorkflowStore((state) => state.runningNodeId);
     const ids = useWorkflowStore((state) => state.ids);
     const lastRun = useWorkflowStore((state) => state.lastRun);
-    const addToast = useWorkflowStore((state) => state.addToast);
     const backdrop = useBackdropClose(closePanel);
-    const isManualTrigger = allNodes.some((n) => isTestableTrigger(n.data.nodeType));
 
-    useEffect(() => {
-        if (inputScrollRef.current) {
-            inputScrollRef.current.scrollTop = 0;
-        }
-    }, [nodeId]);
+    const isManualTrigger = allNodes.some((n) => isTestableTrigger(n.data.nodeType));
 
     useEffect(() => {
         if (!optionsMenuOpen) return;
@@ -86,12 +86,10 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
         const handleMouseMove = (e: MouseEvent) => {
             if (isDraggingLeft.current) {
                 const deltaX = e.clientX - dragStartX.current;
-                const newWidth = Math.max(280, Math.min(650, dragStartWidth.current + deltaX));
-                setLeftWidth(newWidth);
+                setLeftWidth(Math.max(280, Math.min(650, dragStartWidth.current + deltaX)));
             } else if (isDraggingRight.current) {
                 const deltaX = dragStartX.current - e.clientX;
-                const newWidth = Math.max(260, Math.min(650, dragStartWidth.current + deltaX));
-                setRightWidth(newWidth);
+                setRightWidth(Math.max(260, Math.min(650, dragStartWidth.current + deltaX)));
             }
         };
 
@@ -135,10 +133,10 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     const definition = definitions.find((item) => item.type === node?.data.nodeType);
 
     const isSupplyNode =
-        definition !== undefined
-        && definition.inputs.length === 0
-        && definition.outputs.length > 0
-        && definition.outputs.every(isSpecialHandle);
+        definition !== undefined &&
+        definition.inputs.length === 0 &&
+        definition.outputs.length > 0 &&
+        definition.outputs.every(isSpecialHandle);
 
     const upstreamDataList = useMemo(() => {
         if (!node) return [];
@@ -208,27 +206,20 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     const { iconName, iconStyle } = nodeAppearance(definition);
 
     const isTrigger = definition?.category === 'trigger';
-    const canTestNode = isManualTrigger && (!isTrigger || isTelegramTrigger(node.data.nodeType) || isGmailTrigger(node.data.nodeType));
+    const canTestNode =
+        isManualTrigger &&
+        (!isTrigger ||
+            isScheduleTrigger(node.data.nodeType) ||
+            isWebhookTrigger(node.data.nodeType) ||
+            isTelegramTrigger(node.data.nodeType) ||
+            isGmailTrigger(node.data.nodeType) ||
+            isSheetsTrigger(node.data.nodeType));
+
     const activeTab = isTrigger && mobileTab === 'input' ? 'parameters' : mobileTab;
 
     const isExecuting = runningNodeId === nodeId;
     const dbId = ids[nodeId] ?? Number(nodeId);
     const currentNodeRun = [...(lastRun?.node_runs ?? [])].reverse().find((r) => r.node_id === dbId);
-
-    const isNodeCardOpen = (id: string, index: number) => {
-        if (id in expandedNodes) {
-            return expandedNodes[id];
-        }
-        return index === 0;
-    };
-
-    const toggleNodeCard = (id: string, index: number) => {
-        const currentOpen = isNodeCardOpen(id, index);
-        setExpandedNodes((prev) => ({
-            ...prev,
-            [id]: !currentOpen,
-        }));
-    };
 
     const restoreName = () => {
         if (node.data.label.trim() === '') {
@@ -236,26 +227,28 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
         }
     };
 
-    const copyOutputJson = () => {
-        if (!currentNodeRun?.output_data) {
-            return;
+    const setFieldValue = (key: string, value: unknown) => {
+        const nextConfig: Record<string, unknown> = {
+            ...node.data.config,
+            [key]: value,
+        };
+        if (key === 'credential_id') {
+            delete nextConfig.spreadsheet_id;
+            delete nextConfig.sheet;
+            delete nextConfig.model;
+            delete nextConfig.model_multimodal;
+        } else if (key === 'spreadsheet_id') {
+            delete nextConfig.sheet;
         }
-        navigator.clipboard.writeText(JSON.stringify(currentNodeRun.output_data, null, 2));
-        addToast('داده‌های خروجی کپی شدند.', 'success', 2500);
-    };
-
-    const copyErrorText = () => {
-        if (!currentNodeRun?.error) return;
-        navigator.clipboard.writeText(currentNodeRun.error);
-        addToast('متن خطا در کلیپ‌بورد کپی شد.', 'success', 2000);
+        updateNode(node.id, { config: nextConfig });
     };
 
     const isFieldVisible = (field: ConfigField, config: Record<string, unknown>) => {
         if (!field.depends_on) return true;
         for (const [depKey, depValue] of Object.entries(field.depends_on)) {
-            const actual = config[depKey];
+            const actual = config[depKey] ?? definition?.configSchema[depKey]?.default ?? '';
             const allowed = Array.isArray(depValue) ? depValue : [depValue];
-            if (!allowed.includes(String(actual ?? ''))) return false;
+            if (!allowed.includes(String(actual))) return false;
         }
         return true;
     };
@@ -266,8 +259,12 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     const primaryFields = visibleFields.filter(([, field]) => !field.advanced);
     const availableAdvancedFields = visibleFields.filter(([, field]) => field.advanced);
 
-    const activeAdvancedFields = availableAdvancedFields.filter(([key]) => node.data.config[key] !== undefined && node.data.config[key] !== null);
-    const inactiveAdvancedFields = availableAdvancedFields.filter(([key]) => node.data.config[key] === undefined || node.data.config[key] === null);
+    const activeAdvancedFields = availableAdvancedFields.filter(
+        ([key]) => node.data.config[key] !== undefined && node.data.config[key] !== null,
+    );
+    const inactiveAdvancedFields = availableAdvancedFields.filter(
+        ([key]) => node.data.config[key] === undefined || node.data.config[key] === null,
+    );
 
     const addAdvancedField = (key: string, field: ConfigField) => {
         updateNode(node.id, {
@@ -288,18 +285,18 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
     return (
         <div
             {...backdrop}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-2"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-0 backdrop-blur-md sm:p-2"
         >
             <div
                 dir="rtl"
                 onClick={(e) => e.stopPropagation()}
-                className="studio-modal flex h-[96vh] w-full max-w-[1680px] flex-col overflow-hidden rounded-2xl border border-line-border bg-surface-raised shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+                className="studio-modal flex h-[96vh] w-full max-w-[1680px] flex-col overflow-hidden rounded-2xl border border-line-border bg-surface-raised shadow-2xl duration-150 animate-in fade-in zoom-in-95"
             >
                 <header
                     dir="ltr"
                     className="flex h-16 shrink-0 items-center justify-between border-b border-line-border bg-surface-raised px-4 sm:px-6"
                 >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex min-w-0 items-center gap-3">
                         <span className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${iconStyle}`}>
                             <Icon name={iconName} className="size-5" />
                         </span>
@@ -313,9 +310,11 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                 dir="ltr"
                                 onChange={(e) => updateNode(node.id, { label: e.target.value })}
                                 onBlur={restoreName}
-                                className="w-48 sm:w-64 rounded-md bg-transparent px-1 text-sm font-bold text-content-main focus:bg-surface-card focus:outline-none focus:ring-2 focus:ring-primary/40 truncate select-text"
+                                className="w-48 truncate rounded-md bg-transparent px-1 text-sm font-bold text-content-main select-text focus:bg-surface-card focus:ring-2 focus:ring-primary/40 focus:outline-none sm:w-64"
                             />
-                            <p className="px-1 text-[11px] text-content-muted text-left">{definition?.name ?? 'نوع ناشناخته'}</p>
+                            <p className="px-1 text-left text-[11px] text-content-muted">
+                                {definition?.name ?? 'نوع ناشناخته'}
+                            </p>
                         </div>
                     </div>
 
@@ -335,7 +334,7 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                             <button
                                 type="button"
                                 onClick={() => void cancelWorkflow()}
-                                className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3.5 py-2 text-xs font-bold text-amber-500 shadow-sm transition hover:bg-amber-500/20"
+                                className="flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3.5 py-2 text-xs font-bold text-amber-500 shadow-sm transition hover:bg-amber-500/20"
                             >
                                 <Icon name="player-stop" className="size-4" />
                                 <span className="hidden sm:inline">
@@ -351,13 +350,15 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                                 >
                                     <Icon name="player-play" className="size-4" />
                                     <span className="hidden sm:inline">
-                                        {isTelegramTrigger(node.data.nodeType)
-                                            ? 'دریافت پیام تستی'
-                                            : isGmailTrigger(node.data.nodeType)
-                                                ? 'بررسی و دریافت ایمیل تستی'
-                                                : isSheetsTrigger(node.data.nodeType)
-                                                    ? 'بررسی تغییرات شیت'
-                                                    : 'تست این مرحله'}
+                                        {isWebhookTrigger(node.data.nodeType)
+                                            ? 'گوش دادن به رویداد تستی'
+                                            : isTelegramTrigger(node.data.nodeType)
+                                                ? 'دریافت پیام تستی'
+                                                : isGmailTrigger(node.data.nodeType)
+                                                    ? 'بررسی و دریافت ایمیل تستی'
+                                                    : isSheetsTrigger(node.data.nodeType)
+                                                        ? 'بررسی تغییرات شیت'
+                                                        : 'تست این مرحله'}
                                     </span>
                                 </button>
                             )
@@ -365,13 +366,15 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                     </div>
                 </header>
 
-                <div className="flex md:hidden border-b border-line-border bg-surface-card/60 p-1 text-xs font-semibold">
+                <div className="flex border-b border-line-border bg-surface-card/60 p-1 text-xs font-semibold md:hidden">
                     {!isTrigger && (
                         <button
                             type="button"
                             onClick={() => setMobileTab('input')}
-                            className={`flex-1 py-2 text-center rounded-xl transition ${
-                                activeTab === 'input' ? 'bg-surface-raised text-primary shadow-xs' : 'text-content-muted'
+                            className={`flex-1 rounded-xl py-2 text-center transition ${
+                                activeTab === 'input'
+                                    ? 'bg-surface-raised text-primary shadow-xs'
+                                    : 'text-content-muted'
                             }`}
                         >
                             ورودی
@@ -380,8 +383,10 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                     <button
                         type="button"
                         onClick={() => setMobileTab('parameters')}
-                        className={`flex-1 py-2 text-center rounded-xl transition ${
-                            activeTab === 'parameters' ? 'bg-surface-raised text-primary shadow-xs' : 'text-content-muted'
+                        className={`flex-1 rounded-xl py-2 text-center transition ${
+                            activeTab === 'parameters'
+                                ? 'bg-surface-raised text-primary shadow-xs'
+                                : 'text-content-muted'
                         }`}
                     >
                         تنظیمات
@@ -389,118 +394,25 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                     <button
                         type="button"
                         onClick={() => setMobileTab('output')}
-                        className={`flex-1 py-2 text-center rounded-xl transition ${
-                            activeTab === 'output' ? 'bg-surface-raised text-primary shadow-xs' : 'text-content-muted'
+                        className={`flex-1 rounded-xl py-2 text-center transition ${
+                            activeTab === 'output'
+                                ? 'bg-surface-raised text-primary shadow-xs'
+                                : 'text-content-muted'
                         }`}
                     >
                         خروجی
                     </button>
                 </div>
 
-                <div className="flex min-h-0 flex-1 w-full flex-col md:flex-row" dir="ltr">
+                <div className="flex min-h-0 w-full flex-1 flex-col md:flex-row" dir="ltr">
                     {!isTrigger && (
                         <>
-                            <section
-                                style={{ width: window.innerWidth >= 768 ? leftWidth : '100%' }}
-                                className={`flex-col min-h-0 bg-surface-card/40 shrink-0 ${
-                                    activeTab === 'input' ? 'flex' : 'hidden md:flex'
-                                }`}
-                                dir="rtl"
-                            >
-                                <div className="flex items-center justify-between border-b border-line-border px-5 py-3">
-                                    <span className="text-xs font-bold text-content-main flex items-center gap-2">
-                                        <Icon name="brackets" className="size-4 text-primary" />
-                                        داده‌های ورودی (Input)
-                                    </span>
-                                    {upstreamDataList.length > 0 && (
-                                        <span className="rounded-md bg-line-border/60 px-2 py-0.5 text-[10px] font-semibold text-content-muted">
-                                            {upstreamDataList.length} نود قبلی
-                                        </span>
-                                    )}
-                                </div>
-
-                                <div
-                                    ref={inputScrollRef}
-                                    className="custom-scrollbar flex-1 overflow-y-auto p-3.5 sm:p-4 space-y-3 select-text"
-                                >
-                                    {upstreamDataList.length === 0 ? (
-                                        <div className="py-16 text-center text-xs text-content-muted space-y-2">
-                                            <Icon name="link-off" className="mx-auto size-7 opacity-30" />
-                                            <p>نود قبلی به این نود متصل نیست.</p>
-                                        </div>
-                                    ) : (
-                                        upstreamDataList.map((item, idx) => {
-                                            const isOpen = isNodeCardOpen(item.sourceNode.id, idx);
-                                            const { iconName: srcIcon, iconStyle: srcStyle } = nodeAppearance(item.sourceDef);
-                                            const basePath = idx === 0
-                                                ? 'input'
-                                                : `$('${item.sourceNode.data.label}').item.json`;
-
-                                            return (
-                                                <div
-                                                    key={item.sourceNode.id}
-                                                    className="overflow-hidden rounded-2xl border border-line-border/80 bg-surface-raised shadow-xs transition-all"
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => toggleNodeCard(item.sourceNode.id, idx)}
-                                                        className="flex w-full items-center justify-between gap-2.5 px-3.5 py-2.5 text-start transition hover:bg-surface-card/70"
-                                                    >
-                                                        <div className="flex min-w-0 items-center gap-2.5">
-                                                            <span className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${srcStyle}`}>
-                                                                <Icon name={srcIcon} className="size-4" />
-                                                            </span>
-                                                            <div className="min-w-0">
-                                                                <span dir="auto" className="block truncate text-xs font-bold text-content-main">
-                                                                    {item.sourceNode.data.label}
-                                                                </span>
-                                                                <span className="block text-[10px] text-content-muted">
-                                                                    {idx === 0 ? 'نود قبلی مستقیم' : `${idx + 1} مرحله قبل`}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex shrink-0 items-center gap-2">
-                                                            {item.status && (
-                                                                <span
-                                                                    className={`rounded-md px-1.5 py-0.5 text-[9px] font-bold ${
-                                                                        item.status === 'success'
-                                                                            ? 'bg-emerald-500/10 text-emerald-500'
-                                                                            : 'bg-primary/10 text-primary'
-                                                                    }`}
-                                                                >
-                                                                    {item.status === 'success' ? 'موفق' : 'خطا'}
-                                                                </span>
-                                                            )}
-                                                            <Icon
-                                                                name="chevron-down"
-                                                                className={`size-4 text-content-muted transition-transform duration-200 ${
-                                                                    isOpen ? 'rotate-180 text-primary' : ''
-                                                                }`}
-                                                            />
-                                                        </div>
-                                                    </button>
-
-                                                    {isOpen && (
-                                                        <div className="border-t border-line-border/60 p-3.5 bg-surface-card/30">
-                                                            {item.outputData ? (
-                                                                <DataTreeViewer
-                                                                    data={item.outputData}
-                                                                    basePath={basePath}
-                                                                />
-                                                            ) : (
-                                                                <p className="py-4 text-center text-[11px] text-content-muted">
-                                                                    داده‌ای از این نود ثبت نشده است. ابتدا آن را اجرا کنید.
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </section>
+                            <NodeInputPanel
+                                nodeId={nodeId}
+                                width={leftWidth}
+                                visibleOnMobile={activeTab === 'input'}
+                                upstreamDataList={upstreamDataList}
+                            />
 
                             <div
                                 onMouseDown={startLeftResize}
@@ -519,132 +431,147 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                     )}
 
                     <section
-                        className={`flex-1 flex-col min-h-0 min-w-0 bg-surface-raised ${
+                        className={`min-h-0 min-w-0 flex-1 flex-col bg-surface-raised ${
                             activeTab === 'parameters' ? 'flex' : 'hidden md:flex'
                         }`}
                         dir="rtl"
                     >
                         <div className="flex items-center justify-between border-b border-line-border px-6 py-3">
-                            <span className="text-xs font-bold text-content-main flex items-center gap-2">
+                            <span className="flex items-center gap-2 text-xs font-bold text-content-main">
                                 <Icon name={isTrigger ? 'player-play' : 'settings'} className="size-4 text-primary" />
                                 {isTrigger ? 'تنظیمات شروع‌کننده (Trigger)' : 'تنظیمات نود (Parameters)'}
                             </span>
                         </div>
 
-                        <div className="custom-scrollbar flex-1 space-y-5 overflow-y-auto p-4 sm:p-6 select-text">
-                            {isTrigger ? (
-                                <TriggerSettings node={node} definition={definition} />
-                            ) : (
-                                <>
-                                    {definition?.description && (
-                                        <p className="text-xs leading-6 text-content-muted">{definition.description}</p>
-                                    )}
+                        <div className="custom-scrollbar flex-1 space-y-5 overflow-y-auto p-4 select-text sm:p-6">
+                            {definition?.description && (
+                                <p className="text-xs leading-6 text-content-muted">{definition.description}</p>
+                            )}
 
-                                    {!definition && (
-                                        <p className="text-xs leading-6 text-primary">نوع این نود دیگر وجود ندارد.</p>
-                                    )}
+                            {!definition && (
+                                <p className="text-xs leading-6 text-primary">نوع این نود دیگر وجود ندارد.</p>
+                            )}
 
-                                    {definition && primaryFields.length === 0 && (
-                                        <p className="py-12 text-center text-xs text-content-muted">این نود تنظیماتی ندارد.</p>
-                                    )}
+                            {isTrigger && <TriggerSettings node={node} />}
 
-                                    {primaryFields.map(([key, field]) => {
-                                        const id = `studio-field-${node.id}-${key}`;
+                            {definition && visibleFields.length === 0 && (
+                                <p className="py-12 text-center text-xs text-content-muted">
+                                    {isTrigger ? 'این شروع‌کننده تنظیماتی ندارد.' : 'این نود تنظیماتی ندارد.'}
+                                </p>
+                            )}
 
-                                        return (
-                                            <FieldShell
-                                                key={key}
-                                                id={id}
-                                                label={field.label ?? key}
-                                                required={field.required}
-                                                help={field.help}
-                                                hideLabel={field.type === 'boolean'}
+                            {primaryFields.map(([key, field]) => {
+                                const id = `studio-field-${node.id}-${key}`;
+
+                                return (
+                                    <FieldShell
+                                        key={key}
+                                        id={id}
+                                        label={field.label ?? key}
+                                        required={field.required}
+                                        help={field.help}
+                                        hideLabel={field.type === 'boolean'}
+                                    >
+                                        <ConfigFieldInput
+                                            id={id}
+                                            field={field}
+                                            value={node.data.config[key] ?? field.default ?? null}
+                                            incomingData={isTrigger ? undefined : combinedIncomingContext}
+                                            fullConfig={node.data.config}
+                                            onChange={(value) => setFieldValue(key, value)}
+                                        />
+                                    </FieldShell>
+                                );
+                            })}
+
+                            {activeAdvancedFields.map(([key, field]) => {
+                                const id = `studio-field-${node.id}-${key}`;
+
+                                if (field.type === 'boolean') {
+                                    return (
+                                        <div key={key} className="flex items-center gap-2">
+                                            <div className="min-w-0 flex-1">
+                                                <ConfigFieldInput
+                                                    id={id}
+                                                    field={field}
+                                                    value={node.data.config[key] ?? field.default ?? null}
+                                                    incomingData={isTrigger ? undefined : combinedIncomingContext}
+                                                    fullConfig={node.data.config}
+                                                    onChange={(value) => setFieldValue(key, value)}
+                                                />
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeAdvancedField(key)}
+                                                title="حذف این گزینه"
+                                                className="flex size-8 shrink-0 items-center justify-center rounded-xl text-content-muted transition hover:bg-primary/10 hover:text-primary"
                                             >
-                                                <ConfigFieldInput
-                                                    id={id}
-                                                    field={field}
-                                                    value={node.data.config[key] ?? field.default ?? null}
-                                                    incomingData={combinedIncomingContext}
-                                                    fullConfig={node.data.config}
-                                                    onChange={(value) => {
-                                                        const nextConfig: Record<string, unknown> = { ...node.data.config, [key]: value };
-                                                        if (key === 'credential_id') {
-                                                            delete nextConfig.spreadsheet_id;
-                                                            delete nextConfig.sheet;
-                                                        } else if (key === 'spreadsheet_id') {
-                                                            delete nextConfig.sheet;
-                                                        }
-                                                        updateNode(node.id, { config: nextConfig });
-                                                    }}
-                                                />
-                                            </FieldShell>
-                                        );
-                                    })}
-
-                                    {activeAdvancedFields.map(([key, field]) => {
-                                        const id = `studio-field-${node.id}-${key}`;
-
-                                        return (
-                                            <div key={key} className="relative rounded-2xl border border-line-border/70 bg-surface-card/60 p-4 pt-3">
-                                                <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-line-border/50">
-                                                    <span className="text-xs font-bold text-content-main">
-                                                        {field.label ?? key}
-                                                    </span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeAdvancedField(key)}
-                                                        title="حذف این گزینه"
-                                                        className="flex size-6 items-center justify-center rounded-lg text-content-muted transition hover:bg-primary/10 hover:text-primary"
-                                                    >
-                                                        <Icon name="x" className="size-3.5" />
-                                                    </button>
-                                                </div>
-
-                                                <ConfigFieldInput
-                                                    id={id}
-                                                    field={field}
-                                                    value={node.data.config[key] ?? field.default ?? null}
-                                                    incomingData={combinedIncomingContext}
-                                                    fullConfig={node.data.config}
-                                                    onChange={(value) =>
-                                                        updateNode(node.id, { config: { ...node.data.config, [key]: value } })
-                                                    }
-                                                />
-                                            </div>
-                                        );
-                                    })}
-
-                                    {inactiveAdvancedFields.length > 0 && (
-                                        <div className="pt-2">
-                                            <div ref={optionsContainerRef} className="relative">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setOptionsMenuOpen((prev) => !prev)}
-                                                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line-border bg-surface-card py-2.5 text-xs font-semibold text-content-main hover:bg-line-border/40 transition shadow-xs"
-                                                >
-                                                    <Icon name="plus" className="size-3.5" />
-                                                    <span>افزودن گزینه (گزینه‌های بیشتر)</span>
-                                                </button>
-
-                                                {optionsMenuOpen && (
-                                                    <div className="absolute right-0 bottom-full mb-1.5 w-full rounded-2xl border border-line-border bg-surface-raised p-1.5 shadow-xl backdrop-blur-md z-30 space-y-0.5">
-                                                        {inactiveAdvancedFields.map(([key, field]) => (
-                                                            <button
-                                                                key={key}
-                                                                type="button"
-                                                                onClick={() => addAdvancedField(key, field)}
-                                                                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-start text-xs font-medium text-content-main hover:bg-primary/10 hover:text-primary transition"
-                                                            >
-                                                                <Icon name="plus" className="size-3.5 text-primary" />
-                                                                <span>{field.label ?? key}</span>
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
+                                                <Icon name="trash" className="size-4" />
+                                            </button>
                                         </div>
-                                    )}
-                                </>
+                                    );
+                                }
+
+                                return (
+                                    <div
+                                        key={key}
+                                        className="relative rounded-2xl border border-line-border/70 bg-surface-card/60 p-4 pt-3"
+                                    >
+                                        <div className="mb-2 flex items-center justify-between border-b border-line-border/50 pb-1.5">
+                                            <span className="text-xs font-bold text-content-main">
+                                                {field.label ?? key}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => removeAdvancedField(key)}
+                                                title="حذف این گزینه"
+                                                className="flex size-6 items-center justify-center rounded-lg text-content-muted transition hover:bg-primary/10 hover:text-primary"
+                                            >
+                                                <Icon name="x" className="size-3.5" />
+                                            </button>
+                                        </div>
+
+                                        <ConfigFieldInput
+                                            id={id}
+                                            field={field}
+                                            value={node.data.config[key] ?? field.default ?? null}
+                                            incomingData={isTrigger ? undefined : combinedIncomingContext}
+                                            fullConfig={node.data.config}
+                                            onChange={(value) => setFieldValue(key, value)}
+                                        />
+                                    </div>
+                                );
+                            })}
+
+                            {inactiveAdvancedFields.length > 0 && (
+                                <div className="pt-2">
+                                    <div ref={optionsContainerRef} className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setOptionsMenuOpen((prev) => !prev)}
+                                            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line-border bg-surface-card py-2.5 text-xs font-semibold text-content-main shadow-xs transition hover:bg-line-border/40"
+                                        >
+                                            <Icon name="plus" className="size-3.5" />
+                                            <span>افزودن گزینه (گزینه‌های بیشتر)</span>
+                                        </button>
+
+                                        {optionsMenuOpen && (
+                                            <div className="absolute right-0 bottom-full z-30 mb-1.5 w-full space-y-0.5 rounded-2xl border border-line-border bg-surface-raised p-1.5 shadow-xl backdrop-blur-md">
+                                                {inactiveAdvancedFields.map(([key, field]) => (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        onClick={() => addAdvancedField(key, field)}
+                                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-start text-xs font-medium text-content-main transition hover:bg-primary/10 hover:text-primary"
+                                                    >
+                                                        <Icon name="plus" className="size-3.5 text-primary" />
+                                                        <span>{field.label ?? key}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </section>
@@ -663,94 +590,12 @@ function NodeStudio({ nodeId }: { nodeId: string }) {
                         />
                     </div>
 
-                    <section
-                        style={{ width: window.innerWidth >= 768 ? rightWidth : '100%' }}
-                        className={`flex-col min-h-0 bg-surface-card/40 shrink-0 ${
-                            activeTab === 'output' ? 'flex' : 'hidden md:flex'
-                        }`}
-                        dir="rtl"
-                    >
-                        <div className="flex items-center justify-between border-b border-line-border px-5 py-3">
-                            <span className="text-xs font-bold text-content-main flex items-center gap-2">
-                                <Icon name="sparkles" className="size-4 text-primary" />
-                                نتیجه خروجی (Output)
-                            </span>
-
-                            {currentNodeRun && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={copyOutputJson}
-                                        title="کپی داده‌های خروجی"
-                                        className="flex items-center gap-1 rounded-md border border-line-border bg-surface-raised px-2 py-0.5 text-[10px] text-content-muted hover:text-content-main transition"
-                                    >
-                                        <Icon name="copy" className="size-3" />
-                                        <span>کپی خروجی</span>
-                                    </button>
-
-                                    {currentNodeRun.duration_ms !== null && (
-                                        <span className="flex items-center gap-1 font-mono text-[11px] text-content-muted" dir="ltr">
-                                            <Icon name="clock" className="size-3" />
-                                            {currentNodeRun.duration_ms} ms
-                                        </span>
-                                    )}
-
-                                    <span
-                                        className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
-                                            currentNodeRun.status === 'success'
-                                                ? 'bg-emerald-500/10 text-emerald-500'
-                                                : 'bg-primary/10 text-primary'
-                                        }`}
-                                    >
-                                        {currentNodeRun.status === 'success' ? 'موفق' : 'خطا'}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 select-text">
-                            {!currentNodeRun ? (
-                                <div className="py-16 text-center text-xs text-content-muted space-y-2">
-                                    <Icon name="clock" className="mx-auto size-7 opacity-30" />
-                                    <p>
-                                        {!isManualTrigger
-                                            ? 'ورکفلو را از طریق ورودی مربوطه اجرا کنید تا خروجی نمایش داده شود.'
-                                            : 'این نود هنوز در تست اجرا نشده است.'}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="space-y-4 text-xs">
-                                    {currentNodeRun.error && (
-                                        <div className="rounded-2xl border border-primary/20 bg-primary/10 p-3.5 text-primary text-xs leading-5 max-h-56 overflow-y-auto space-y-2">
-                                            <div className="flex items-center justify-between border-b border-primary/20 pb-1.5">
-                                                <span className="font-bold text-[11px]">Error Output</span>
-                                                <button
-                                                    type="button"
-                                                    onClick={copyErrorText}
-                                                    className="flex items-center gap-1 text-[10px] text-primary hover:underline transition"
-                                                >
-                                                    <Icon name="copy" className="size-3" />
-                                                    <span>کپی متن خطا</span>
-                                                </button>
-                                            </div>
-                                            <p className="text-start font-mono text-[11px] break-all select-text whitespace-pre-wrap" dir="auto">
-                                                {currentNodeRun.error}
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-1.5">
-                                        <pre
-                                            dir="ltr"
-                                            className="custom-scrollbar max-h-96 overflow-auto rounded-2xl border border-line-border bg-surface-card p-4 font-mono text-[11px] leading-5 text-content-main select-text"
-                                        >
-                                            {JSON.stringify(currentNodeRun.output_data, null, 2) ?? 'null'}
-                                        </pre>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </section>
+                    <NodeOutputPanel
+                        width={rightWidth}
+                        visibleOnMobile={activeTab === 'output'}
+                        isManualTrigger={isManualTrigger}
+                        currentNodeRun={currentNodeRun}
+                    />
                 </div>
             </div>
         </div>

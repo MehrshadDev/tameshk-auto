@@ -1,3 +1,8 @@
+@php
+    $text = 'margin:0 0 20px;color:#0f172a;font-size:15px;line-height:1.8;text-align:right;';
+    $muted = 'margin:0 0 20px;color:#64748b;font-size:13px;line-height:1.8;text-align:right;';
+@endphp
+
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
@@ -16,8 +21,8 @@
         </tr>
         <tr>
             <td dir="rtl" align="right" style="padding:32px 24px;direction:rtl;text-align:right;">
-                <p dir="rtl" style="margin:0 0 20px;color:#0f172a;font-size:15px;line-height:1.8;text-align:right;">سلام 👋</p>
-                <p dir="rtl" style="margin:0 0 20px;color:#0f172a;font-size:15px;line-height:1.8;text-align:right;">کد تایید شما جهت ادامه فرآیند به شرح زیر است:</p>
+                <p dir="rtl" style="{{ $text }}">سلام 👋</p>
+                <p dir="rtl" style="{{ $text }}">کد تایید شما جهت ادامه فرآیند به شرح زیر است:</p>
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
                     <tr>
                         <td align="center" style="background:#f3f4f6;border:2px dashed #E21C48;border-radius:12px;padding:20px;text-align:center;">
@@ -25,8 +30,8 @@
                         </td>
                     </tr>
                 </table>
-                <p dir="rtl" style="margin:0 0 20px;color:#64748b;font-size:13px;line-height:1.8;text-align:right;">⏳ این کد تا {{ $expiresInMinutes }} دقیقه دیگر اعتبار دارد.</p>
-                <p dir="rtl" style="margin:0;color:#64748b;font-size:13px;line-height:1.8;text-align:right;">اگر شما این درخواست را نداده‌اید، این ایمیل را نادیده بگیرید.</p>
+                <p dir="rtl" style="{{ $muted }}">⏳ این کد تا {{ $expiresInMinutes }} دقیقه دیگر اعتبار دارد.</p>
+                <p dir="rtl" style="{{ $muted }}margin-bottom:0;">اگر شما این درخواست را نداده‌اید، این ایمیل را نادیده بگیرید.</p>
             </td>
         </tr>
         <tr>

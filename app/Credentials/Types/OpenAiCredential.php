@@ -2,47 +2,25 @@
 
 namespace App\Credentials\Types;
 
-use App\Credentials\Contracts\CredentialTypeContract;
-use App\Credentials\DTOs\CredentialDefinition;
-use App\Credentials\Exceptions\InvalidCredentialException;
-
-class OpenAiCredential implements CredentialTypeContract
+class OpenAiCredential extends ApiKeyCredential
 {
-    public static function key(): string
-    {
-        return 'openai';
-    }
+    public static function key(): string { return 'openai'; }
+    protected static function displayName(): string { return 'OpenAI (ChatGPT)'; }
+    protected static function description(): string { return 'کلید API برای دسترسی به مدل‌های GPT-4o, o3 و سایر مدل‌های OpenAI'; }
+    protected static function icon(): string { return 'brand:chatgpt'; }
+    protected static function placeholder(): ?string { return 'sk-...'; }
+    protected static function help(): string { return 'از پلتفرم platform.openai.com دریافت کنید.'; }
 
-    public static function definition(): CredentialDefinition
+    protected static function extraSchema(): array
     {
-        return new CredentialDefinition(
-            key: 'openai',
-            name: 'OpenAI (ChatGPT)',
-            description: 'کلید API برای دسترسی به مدل‌های GPT-4o, o3 و سایر مدل‌های OpenAI',
-            icon: 'brand:chatgpt',
-            schema: [
-                'api_key' => [
-                    'type'        => 'password',
-                    'label'       => 'API Key',
-                    'required'    => true,
-                    'placeholder' => 'sk-...',
-                    'help'        => 'از پلتفرم platform.openai.com دریافت کنید.',
-                ],
-                'base_url' => [
-                    'type'        => 'text',
-                    'label'       => 'Base URL (اختیاری)',
-                    'required'    => false,
-                    'default'     => 'https://api.openai.com/v1',
-                    'placeholder' => 'https://api.openai.com/v1',
-                ],
+        return [
+            'base_url' => [
+                'type'        => 'text',
+                'label'       => 'Base URL (اختیاری)',
+                'required'    => false,
+                'default'     => 'https://api.openai.com/v1',
+                'placeholder' => 'https://api.openai.com/v1',
             ],
-        );
-    }
-
-    public function validate(array $data): void
-    {
-        if (empty($data['api_key']) || ! is_string($data['api_key']) || mb_strlen(trim($data['api_key'])) < 10) {
-            throw InvalidCredentialException::because('کلید API معتبر الزامی است.');
-        }
+        ];
     }
 }

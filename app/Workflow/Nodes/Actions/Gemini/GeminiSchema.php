@@ -40,7 +40,6 @@ final class GeminiSchema
                     'default' => 'text',
                     'required' => true,
                 ],
-
                 'operation' => [
                     'type' => 'select',
                     'label' => 'عملیات (Operation)',
@@ -123,14 +122,12 @@ final class GeminiSchema
                 'model' => [
                     'type' => 'model_select',
                     'label' => 'مدل هوش مصنوعی',
-                    'default' => 'gemini-2.5-flash',
                     'required' => true,
                     'depends_on' => ['resource' => ['text', 'document']],
                 ],
                 'model_multimodal' => [
                     'type' => 'model_select',
                     'label' => 'مدل پردازش مدیا',
-                    'default' => 'gemini-2.5-flash',
                     'required' => true,
                     'depends_on' => ['resource' => ['image', 'audio', 'video']],
                 ],

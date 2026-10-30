@@ -21,8 +21,6 @@ abstract class BaseChatModelNode implements NodeContract
 
     abstract protected static function credentialLabel(): string;
 
-    abstract protected static function defaultModel(): string;
-
     abstract protected static function icon(): string;
 
     abstract protected static function color(): string;
@@ -48,7 +46,6 @@ abstract class BaseChatModelNode implements NodeContract
                 'model' => [
                     'type'     => 'model_select',
                     'label'    => 'مدل هوش مصنوعی',
-                    'default'  => static::defaultModel(),
                     'required' => true,
                 ],
                 'temperature' => [

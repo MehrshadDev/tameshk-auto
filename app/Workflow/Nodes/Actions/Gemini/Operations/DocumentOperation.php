@@ -4,52 +4,29 @@ namespace App\Workflow\Nodes\Actions\Gemini\Operations;
 
 use App\Workflow\DTOs\NodeContext;
 use App\Workflow\DTOs\NodeResult;
-use App\Workflow\Exceptions\NodeExecutionException;
-use App\Workflow\Nodes\Actions\Gemini\GeminiOperationContract;
+use App\Workflow\Nodes\Actions\Gemini\GeminiOperation;
 use App\Workflow\Support\GeminiClient;
 
-final class DocumentOperation implements GeminiOperationContract
+final class DocumentOperation extends GeminiOperation
 {
     public function handle(NodeContext $context, GeminiClient $client): NodeResult
     {
-        $docRaw = trim((string)($context->config['document_input'] ?? ''));
-        $mime = (string)($context->config['document_mime_type'] ?? 'application/pdf');
-        $prompt = trim((string)($context->config['prompt'] ?? 'این سند را بررسی و نکات مهم آن را خلاصه کن.'));
-        $model = (string)($context->config['model'] ?? 'gemini-2.5-flash');
-        $system = trim((string)($context->config['system_instruction'] ?? ''));
-
-        if ($docRaw === '') {
-            throw NodeExecutionException::because('ورودی سند (Document input) الزامی است.');
-        }
+        $document = $this->ensure($this->str($context, 'document_input'), 'ورودی سند (Document input) الزامی است.');
+        $model = $this->model($context);
+        $prompt = $this->str($context, 'prompt', 'این سند را بررسی و نکات مهم آن را خلاصه کن.');
+        $system = $this->str($context, 'system_instruction');
 
         $context->log("تحلیل سند توسط Gemini ($model)");
 
-        $docPart = $client->resolveInputPart($docRaw, $mime);
+        $part = $client->resolveInputPart($document, $this->str($context, 'document_mime_type', 'application/pdf'));
 
-        $contents = [
-            [
-                'role' => 'user',
-                'parts' => [
-                    $docPart,
-                    ['text' => $prompt],
-                ],
-            ],
-        ];
-
-        $res = $client->generateContent(
-            model: $model,
-            contents: $contents,
-            generationConfig: ['temperature' => 0.3],
-            systemInstruction: $system !== '' ? $system : null
+        $answer = $client->ask(
+            $model,
+            [$part, ['text' => $prompt]],
+            ['temperature' => 0.3],
+            $system !== '' ? $system : null,
         );
 
-        $text = (string)data_get($res, 'candidates.0.content.parts.0.text', '');
-
-        return NodeResult::of([
-            'text' => $text,
-            'response' => $text,
-            'model' => $model,
-            'raw' => $res,
-        ]);
+        return $this->textResult($answer, $model);
     }
 }

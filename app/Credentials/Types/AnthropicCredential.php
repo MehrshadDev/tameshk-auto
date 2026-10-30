@@ -2,40 +2,12 @@
 
 namespace App\Credentials\Types;
 
-use App\Credentials\Contracts\CredentialTypeContract;
-use App\Credentials\DTOs\CredentialDefinition;
-use App\Credentials\Exceptions\InvalidCredentialException;
-
-class AnthropicCredential implements CredentialTypeContract
+class AnthropicCredential extends ApiKeyCredential
 {
-    public static function key(): string
-    {
-        return 'anthropic';
-    }
-
-    public static function definition(): CredentialDefinition
-    {
-        return new CredentialDefinition(
-            key: 'anthropic',
-            name: 'Anthropic (Claude)',
-            description: 'کلید API برای دسترسی به مدل‌های Claude Sonnet, Opus و Haiku',
-            icon: 'brand:claude',
-            schema: [
-                'api_key' => [
-                    'type'        => 'password',
-                    'label'       => 'API Key',
-                    'required'    => true,
-                    'placeholder' => 'sk-ant-...',
-                    'help'        => 'از کنسول console.anthropic.com دریافت کنید.',
-                ],
-            ],
-        );
-    }
-
-    public function validate(array $data): void
-    {
-        if (empty($data['api_key']) || ! is_string($data['api_key']) || mb_strlen(trim($data['api_key'])) < 10) {
-            throw InvalidCredentialException::because('کلید API معتبر الزامی است.');
-        }
-    }
+    public static function key(): string { return 'anthropic'; }
+    protected static function displayName(): string { return 'Anthropic (Claude)'; }
+    protected static function description(): string { return 'کلید API برای دسترسی به مدل‌های Claude Sonnet, Opus و Haiku'; }
+    protected static function icon(): string { return 'brand:claude'; }
+    protected static function placeholder(): ?string { return 'sk-ant-...'; }
+    protected static function help(): string { return 'از کنسول console.anthropic.com دریافت کنید.'; }
 }

@@ -64,147 +64,130 @@ class EditFieldsNode implements NodeContract
 
     public function execute(NodeContext $context): NodeResult
     {
-        $mode = (string) ($context->config['mode'] ?? 'manual');
         $keepInput = filter_var($context->config['include_other_fields'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $dotNotation = filter_var($context->config['support_dot_notation'] ?? true, FILTER_VALIDATE_BOOLEAN);
 
-        $base = ($keepInput && is_array($context->input)) ? $context->input : [];
+        $output = ($keepInput && is_array($context->input)) ? $context->input : [];
 
-        if ($mode === 'json') {
-            $rawJson = trim((string) ($context->config['json_output'] ?? ''));
+        $values = ($context->config['mode'] ?? 'manual') === 'json'
+            ? $this->jsonValues($context)
+            : $this->manualValues($context);
 
-            if ($rawJson === '') {
-                return NodeResult::of($base);
-            }
-
-            $decoded = json_decode($rawJson, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
-                throw NodeExecutionException::because('ساختار JSON واردشده در نود Edit Fields معتبر نیست.');
-            }
-
-            $output = $base;
-
-            foreach ($decoded as $key => $val) {
-                if ($dotNotation && is_string($key) && str_contains($key, '.')) {
-                    data_set($output, $key, $val);
-                } else {
-                    $output[$key] = $val;
-                }
-            }
-
-            return NodeResult::of($output);
-        }
-
-        $fields = $context->config['fields'] ?? [];
-        if (! is_array($fields)) {
-            $fields = [];
-        }
-
-        $output = $base;
-
-        if (array_is_list($fields)) {
-            foreach ($fields as $item) {
-                if (! is_array($item)) {
-                    continue;
-                }
-
-                $cleanKey = trim((string) ($item['name'] ?? ''));
-                if ($cleanKey === '') {
-                    continue;
-                }
-
-                $type = (string) ($item['type'] ?? 'string');
-                $rawValue = $item['value'] ?? '';
-                $casted = $this->castByType($rawValue, $type, $cleanKey);
-
-                if ($dotNotation) {
-                    data_set($output, $cleanKey, $casted);
-                } else {
-                    $output[$cleanKey] = $casted;
-                }
-            }
-        } else {
-            foreach ($fields as $key => $rawValue) {
-                $cleanKey = trim((string) $key);
-                if ($cleanKey === '') {
-                    continue;
-                }
-
-                $casted = $this->castSmartValue($rawValue);
-
-                if ($dotNotation) {
-                    data_set($output, $cleanKey, $casted);
-                } else {
-                    $output[$cleanKey] = $casted;
-                }
+        foreach ($values as $key => $value) {
+            if ($dotNotation) {
+                data_set($output, $key, $value);
+            } else {
+                $output[$key] = $value;
             }
         }
 
         return NodeResult::of($output);
     }
 
-    private function castByType(mixed $value, string $type, string $fieldName): mixed
+    private function jsonValues(NodeContext $context): array
+    {
+        $raw = trim((string) ($context->config['json_output'] ?? ''));
+
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
+            throw NodeExecutionException::because('ساختار JSON واردشده در نود Edit Fields معتبر نیست.');
+        }
+
+        return $decoded;
+    }
+
+    private function manualValues(NodeContext $context): array
+    {
+        $fields = $context->config['fields'] ?? [];
+
+        if (! is_array($fields)) {
+            return [];
+        }
+
+        $values = [];
+
+        if (array_is_list($fields)) {
+            foreach ($fields as $item) {
+                $name = is_array($item) ? trim((string) ($item['name'] ?? '')) : '';
+
+                if ($name !== '') {
+                    $values[$name] = $this->castByType($item['value'] ?? '', (string) ($item['type'] ?? 'string'), $name);
+                }
+            }
+
+            return $values;
+        }
+
+        foreach ($fields as $key => $raw) {
+            $name = trim((string) $key);
+
+            if ($name !== '') {
+                $values[$name] = $this->castSmartValue($raw);
+            }
+        }
+
+        return $values;
+    }
+
+    private function castByType(mixed $value, string $type, string $field): mixed
     {
         return match ($type) {
-            'string' => is_array($value) || is_object($value)
+            'string'  => is_array($value) || is_object($value)
                 ? json_encode($value, JSON_UNESCAPED_UNICODE)
                 : (string) ($value ?? ''),
-
-            'number' => (function () use ($value, $fieldName) {
-                if (is_int($value) || is_float($value)) {
-                    return $value;
-                }
-                $trimmed = trim((string) $value);
-                if ($trimmed === '') {
-                    return 0;
-                }
-                if (! is_numeric($trimmed)) {
-                    throw NodeExecutionException::because("مقدار فیلد «{$fieldName}» یک عدد معتبر نیست.");
-                }
-                return str_contains($trimmed, '.') ? (float) $trimmed : (int) $trimmed;
-            })(),
-
-            'boolean' => (function () use ($value) {
-                if (is_bool($value)) {
-                    return $value;
-                }
-                $trimmed = strtolower(trim((string) $value));
-                return in_array($trimmed, ['true', '1', 'yes', 'on'], true);
-            })(),
-
-            'array' => (function () use ($value, $fieldName) {
-                if (is_array($value)) {
-                    return array_values($value);
-                }
-                $trimmed = trim((string) $value);
-                if ($trimmed === '') {
-                    return [];
-                }
-                $decoded = json_decode($trimmed, true);
-                if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
-                    throw NodeExecutionException::because("مقدار فیلد «{$fieldName}» یک آرایه JSON معتبر نیست.");
-                }
-                return array_values($decoded);
-            })(),
-
-            'object' => (function () use ($value, $fieldName) {
-                if (is_array($value)) {
-                    return $value;
-                }
-                $trimmed = trim((string) $value);
-                if ($trimmed === '') {
-                    return (object) [];
-                }
-                $decoded = json_decode($trimmed, true);
-                if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
-                    throw NodeExecutionException::because("مقدار فیلد «{$fieldName}» یک آبجکت JSON معتبر نیست.");
-                }
-                return $decoded;
-            })(),
-
-            default => $value,
+            'number'  => $this->castNumber($value, $field),
+            'boolean' => is_bool($value)
+                ? $value
+                : in_array(strtolower(trim((string) $value)), ['true', '1', 'yes', 'on'], true),
+            'array'   => array_values($this->decodeJson($value, $field, 'آرایه', [])),
+            'object'  => $this->decodeJson($value, $field, 'آبجکت', (object) []),
+            default   => $value,
         };
+    }
+
+    private function castNumber(mixed $value, string $field): int|float
+    {
+        if (is_int($value) || is_float($value)) {
+            return $value;
+        }
+
+        $trimmed = trim((string) $value);
+
+        if ($trimmed === '') {
+            return 0;
+        }
+
+        if (! is_numeric($trimmed)) {
+            throw NodeExecutionException::because("مقدار فیلد «{$field}» یک عدد معتبر نیست.");
+        }
+
+        return str_contains($trimmed, '.') ? (float) $trimmed : (int) $trimmed;
+    }
+
+    private function decodeJson(mixed $value, string $field, string $label, mixed $empty): mixed
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        $trimmed = trim((string) $value);
+
+        if ($trimmed === '') {
+            return $empty;
+        }
+
+        $decoded = json_decode($trimmed, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
+            throw NodeExecutionException::because("مقدار فیلد «{$field}» یک $label JSON معتبر نیست.");
+        }
+
+        return $decoded;
     }
 
     private function castSmartValue(mixed $value): mixed

@@ -6,19 +6,20 @@ use App\Http\Requests\UpdateWorkflowGraphRequest;
 use App\Models\Edge;
 use App\Models\Node;
 use App\Models\Workflow;
+use App\Workflow\Contracts\PublishableTriggerContract;
 use App\Workflow\DTOs\NodeDefinition;
 use App\Workflow\Enums\HandleType;
+use App\Workflow\Exceptions\WorkflowPublishException;
 use App\Workflow\Graph\GraphSaver;
 use App\Workflow\Graph\NodeConfigValidator;
+use App\Workflow\Nodes\Triggers\WebhookTriggerNode;
+use App\Workflow\Publishing\TriggerEndpoints;
+use App\Workflow\Publishing\WorkflowPublisher;
 use App\Workflow\Registry\NodeRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use stdClass;
-use App\Workflow\Exceptions\WorkflowPublishException;
-use App\Workflow\Publishing\WorkflowPublisher;
-use App\Workflow\Contracts\PublishableTriggerContract;
-use App\Workflow\Publishing\TriggerEndpoints;
 
 class WorkflowGraphController extends Controller
 {
@@ -58,6 +59,9 @@ class WorkflowGraphController extends Controller
         ]);
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function update(UpdateWorkflowGraphRequest $request, Workflow $workflow, GraphSaver $saver, WorkflowPublisher $publisher): JsonResponse
     {
         Gate::authorize('update', $workflow);
@@ -103,6 +107,16 @@ class WorkflowGraphController extends Controller
             }
 
             $config = array_intersect_key($config, $definition->configSchema + ['disabled' => true]);
+
+            if ($nodeData['type'] === 'trigger.webhook' && array_key_exists('path', $config)) {
+                $config['path'] = WebhookTriggerNode::normalizePath($config['path']);
+
+                if ($pathError = WebhookTriggerNode::pathError($config['path'], $workflow->id)) {
+                    $label = $definition->configSchema['path']['label'] ?? 'path';
+                    $errors["nodes.$index.config.path"] = "نود «{$name}» ← فیلد «{$label}»: $pathError";
+                }
+            }
+
             $nodes[$index]['config'] = $config;
 
             $fieldErrors = $this->configValidator->errors($definition, $config, collect(), complete: false);

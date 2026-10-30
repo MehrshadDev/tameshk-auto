@@ -1,9 +1,9 @@
-import {useEffect, useRef, useState} from 'react';
-import {Icon} from '@canvas/components/ui/Icon';
-import {MarkdownRenderer} from '@canvas/components/ui/MarkdownRenderer';
-import {useWorkflowStore} from '@canvas/store/useWorkflowStore';
-import {asString} from '@canvas/lib/fields';
-import {Tooltip} from "@canvas/components/ui/Tooltip";
+import { useEffect, useRef, useState } from 'react';
+import { Icon } from '@canvas/components/ui/Icon';
+import { MarkdownRenderer } from '@canvas/components/ui/MarkdownRenderer';
+import { Tooltip } from '@canvas/components/ui/Tooltip';
+import { asString, textDir } from '@canvas/lib/fields';
+import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
 
 type Role = 'user' | 'assistant' | 'error';
 
@@ -18,16 +18,18 @@ const truncate = (text: string) => {
     return clean.length > PEEK_MAX_CHARS ? `${clean.slice(0, PEEK_MAX_CHARS).trimEnd()}...` : clean;
 };
 
-const bubbleClass = (role: Role) => {
+const bubbleClass = (role: Role, dir: 'rtl' | 'ltr') => {
+    const alignClass = dir === 'ltr' ? 'mr-auto text-left' : 'ml-auto text-right';
+
     if (role === 'user') {
-        return 'ms-auto bg-primary text-white';
+        return `${alignClass} bg-primary text-white`;
     }
 
     if (role === 'error') {
-        return 'me-auto border border-primary/20 bg-primary/10 text-primary';
+        return `${alignClass} border border-primary/20 bg-primary/10 text-primary`;
     }
 
-    return 'me-auto border border-line-border bg-surface-card text-content-main';
+    return `${alignClass} border border-line-border bg-surface-card text-content-main`;
 };
 
 const peekBubbleClass = (role: Role) => {
@@ -155,6 +157,7 @@ export function ChatFloatingWidget() {
     const placeholder = asString(config.input_placeholder) || 'پیام خود را بنویسید...';
 
     const peekMessage = peekId ? chatMessages.find((m) => m.id === peekId) : undefined;
+    const draftDir = draft.trim() !== '' ? textDir(draft) : 'rtl';
 
     const handleSend = async () => {
         const text = draft.trim();
@@ -185,18 +188,18 @@ export function ChatFloatingWidget() {
                     dir="rtl"
                     onMouseEnter={pausePeek}
                     onMouseLeave={scheduleHide}
-                    style={{transitionDuration: `${PEEK_FADE_MS}ms`}}
+                    style={{ transitionDuration: `${PEEK_FADE_MS}ms` }}
                     className={`pointer-events-none absolute bottom-14 left-0 w-80 pb-2 transition-opacity ${
                         peekLeaving ? 'opacity-0' : 'opacity-100'
                     }`}
                 >
                     <div
                         key={peekMessage.id}
-                        dir="auto"
+                        dir={textDir(peekMessage.text)}
                         onClick={() => setChatOpen(true)}
-                        className={`pointer-events-auto cursor-pointer whitespace-pre-wrap wrap-break-word rounded-2xl px-4 py-3 text-xs leading-6 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 ${peekBubbleClass(
+                        className={`pointer-events-auto cursor-pointer rounded-2xl px-4 py-3 text-xs leading-6 whitespace-pre-wrap wrap-break-word shadow-xl backdrop-blur-md duration-200 animate-in fade-in slide-in-from-bottom-2 ${peekBubbleClass(
                             peekMessage.role,
-                        )}`}
+                        )} ${textDir(peekMessage.text) === 'ltr' ? 'text-left' : 'text-right'}`}
                     >
                         {truncate(peekMessage.text)}
                     </div>
@@ -206,17 +209,15 @@ export function ChatFloatingWidget() {
             {isChatOpen && (
                 <div
                     dir="rtl"
-                    className="absolute bottom-14 left-0 flex h-130 w-96 max-w-[calc(100vw-6rem)] flex-col overflow-hidden rounded-3xl border border-line-border bg-surface-raised/95 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+                    className="absolute bottom-14 left-0 flex h-130 w-96 max-w-[calc(100vw-6rem)] flex-col overflow-hidden rounded-3xl border border-line-border bg-surface-raised/95 shadow-2xl backdrop-blur-xl duration-150 animate-in fade-in zoom-in-95"
                 >
-                    <div
-                        className="flex h-16 shrink-0 items-center justify-between border-b border-line-border/70 px-5">
+                    <div className="flex h-16 shrink-0 items-center justify-between border-b border-line-border/70 px-5">
                         <div className="flex min-w-0 items-center gap-3">
-                            <div
-                                className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                                <Icon name="message-circle" className="size-5"/>
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+                                <Icon name="message-circle" className="size-5" />
                             </div>
                             <div className="min-w-0 space-y-0.5">
-                                <span className="block truncate text-xs font-bold leading-tight text-content-main">
+                                <span className="block truncate text-xs leading-tight font-bold text-content-main">
                                     {title}
                                 </span>
                                 <span className="block text-[11px] leading-tight text-content-muted">
@@ -233,7 +234,7 @@ export function ChatFloatingWidget() {
                                 title="پاک‌کردن تاریخچه"
                                 className="flex size-8 items-center justify-center rounded-xl text-content-muted transition hover:bg-line-border/60 hover:text-content-main disabled:opacity-50"
                             >
-                                <Icon name="trash" className="size-4"/>
+                                <Icon name="trash" className="size-4" />
                             </button>
 
                             <button
@@ -242,32 +243,50 @@ export function ChatFloatingWidget() {
                                 title="بستن"
                                 className="flex size-8 items-center justify-center rounded-xl text-content-muted transition hover:bg-line-border/60 hover:text-content-main"
                             >
-                                <Icon name="x" className="size-4"/>
+                                <Icon name="x" className="size-4" />
                             </button>
                         </div>
                     </div>
 
-                    <div ref={scrollRef} className="custom-scrollbar flex-1 select-text space-y-3 overflow-y-auto p-4">
-                        {chatMessages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className={`w-fit max-w-[88%] rounded-2xl px-4 py-2.5 text-xs shadow-xs ${bubbleClass(
-                                    msg.role,
-                                )}`}
-                            >
-                                {msg.role === 'assistant' ? (
-                                    <MarkdownRenderer content={msg.text}/>
-                                ) : (
-                                    <p dir="auto"
-                                       className="whitespace-pre-wrap wrap-break-word leading-6">{msg.text}</p>
-                                )}
-                            </div>
-                        ))}
+                    <div
+                        ref={scrollRef}
+                        dir="ltr"
+                        className="custom-scrollbar flex-1 space-y-3 overflow-y-auto p-4 select-text"
+                    >
+                        {chatMessages.map((msg) => {
+                            const msgDir = textDir(msg.text);
+
+                            return (
+                                <div
+                                    key={msg.id}
+                                    dir={msgDir}
+                                    className={`w-fit max-w-[88%] rounded-2xl px-4 py-2.5 text-xs shadow-xs ${bubbleClass(
+                                        msg.role,
+                                        msgDir,
+                                    )}`}
+                                >
+                                    {msg.role === 'assistant' ? (
+                                        <MarkdownRenderer content={msg.text} />
+                                    ) : (
+                                        <p
+                                            dir={msgDir}
+                                            className={`leading-6 whitespace-pre-wrap wrap-break-word ${
+                                                msgDir === 'ltr' ? 'text-left' : 'text-right'
+                                            }`}
+                                        >
+                                            {msg.text}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })}
 
                         {isRunning && (
                             <div
-                                className="me-auto flex w-fit items-center gap-2 rounded-2xl border border-line-border bg-surface-card px-3.5 py-2 text-xs text-content-muted shadow-xs">
-                                <Icon name="loader" className="size-3.5 animate-spin text-primary"/>
+                                dir="rtl"
+                                className="ml-auto flex w-fit items-center gap-2 rounded-2xl border border-line-border bg-surface-card px-3.5 py-2 text-xs text-content-muted shadow-xs"
+                            >
+                                <Icon name="loader" className="size-3.5 animate-spin text-primary" />
                                 <span>در حال پردازش...</span>
                             </div>
                         )}
@@ -277,6 +296,7 @@ export function ChatFloatingWidget() {
                         <textarea
                             ref={textareaRef}
                             rows={1}
+                            dir={draftDir}
                             value={draft}
                             maxLength={3000}
                             autoComplete="off"
@@ -289,7 +309,9 @@ export function ChatFloatingWidget() {
                                     void handleSend();
                                 }
                             }}
-                            className="custom-scrollbar min-w-0 flex-1 resize-none overflow-hidden rounded-xl border border-line-border bg-surface-card px-3.5 py-2.5 text-xs leading-5 text-content-main transition placeholder:text-content-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+                            className={`custom-scrollbar min-w-0 flex-1 resize-none overflow-hidden rounded-xl border border-line-border bg-surface-card px-3.5 py-2.5 text-xs leading-5 text-content-main transition placeholder:text-right placeholder:text-content-muted/60 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:opacity-50 ${
+                                draftDir === 'ltr' ? 'text-left' : 'text-right'
+                            }`}
                         />
 
                         {isRunning ? (
@@ -300,7 +322,7 @@ export function ChatFloatingWidget() {
                                     aria-label="توقف اجرا"
                                     className="mb-0.5 flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs transition hover:bg-amber-600"
                                 >
-                                    <Icon name="player-stop" className="size-4"/>
+                                    <Icon name="player-stop" className="size-4" />
                                 </button>
                             </Tooltip>
                         ) : (
@@ -312,7 +334,7 @@ export function ChatFloatingWidget() {
                                     aria-label="ارسال پیام"
                                     className="mb-0.5 flex size-9.5 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-xs transition hover:bg-primary/90 disabled:opacity-50"
                                 >
-                                    <Icon name="send" className="size-4 -scale-x-100"/>
+                                    <Icon name="send" className="size-4 -scale-x-100" />
                                 </button>
                             </Tooltip>
                         )}
@@ -330,10 +352,9 @@ export function ChatFloatingWidget() {
                             : 'border-emerald-500/40 bg-emerald-500 text-white shadow-emerald-500/20 hover:bg-emerald-600'
                     }`}
                 >
-                    <Icon name={isChatOpen ? 'x' : 'message-circle'} className="size-5"/>
+                    <Icon name={isChatOpen ? 'x' : 'message-circle'} className="size-5" />
                     {hasUnread && !isChatOpen && (
-                        <span
-                            className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary ring-2 ring-surface-raised"/>
+                        <span className="absolute -top-1 -right-1 size-2.5 rounded-full bg-primary ring-2 ring-surface-raised" />
                     )}
                 </button>
             </Tooltip>

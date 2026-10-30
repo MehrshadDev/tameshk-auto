@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Workflow\Enums\HandleType;
+use App\Workflow\Registry\NodeRegistry;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,6 +42,32 @@ class WorkflowRun extends Model
     public function nodeRuns(): HasMany
     {
         return $this->hasMany(NodeRun::class);
+    }
+
+    public function lastFlowNodeRun(?Workflow $workflow = null): ?NodeRun
+    {
+        $workflow ??= $this->workflow()->with('nodes')->first();
+        $definitions = app(NodeRegistry::class)->definitions();
+
+        $supplyNodeIds = $workflow
+            ? $workflow->nodes
+                ->filter(function (Node $node) use ($definitions) {
+                    $definition = $definitions[$node->type] ?? null;
+
+                    return $definition
+                        && $definition->inputs === []
+                        && $definition->outputs !== []
+                        && collect($definition->outputs)->every(fn ($handle) => HandleType::isSpecial($handle));
+                })
+                ->pluck('id')
+                ->all()
+            : [];
+
+        $lastId = $this->nodeRuns()
+            ->whereNotIn('node_id', $supplyNodeIds)
+            ->max('id');
+
+        return $lastId ? NodeRun::query()->find($lastId) : null;
     }
 
     public function isFinished(): bool

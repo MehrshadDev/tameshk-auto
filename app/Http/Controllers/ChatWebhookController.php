@@ -2,10 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Node;
 use App\Models\Workflow;
-use App\Workflow\Enums\HandleType;
-use App\Workflow\Registry\NodeRegistry;
 use App\Workflow\Runner\WorkflowRunner;
 use App\Workflow\Support\ChatReply;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -13,13 +10,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
-use App\Models\NodeRun;
 use Throwable;
 
 class ChatWebhookController extends Controller
 {
-    public function __construct(private readonly NodeRegistry $registry) {}
-
     public function show(Request $request, string $token): View
     {
         [, $trigger] = $this->resolve($request, $token);
@@ -62,11 +56,7 @@ class ChatWebhookController extends Controller
                 return $this->failure();
             }
 
-            $lastId = $run->nodeRuns()
-                ->whereNotIn('node_id', $this->supplyNodeIds($workflow))
-                ->max('id');
-
-            $last = $lastId ? NodeRun::query()->find($lastId) : null;
+            $last = $run->lastFlowNodeRun($workflow);
 
             $reply = $last && $last->node_id !== $trigger->id
                 ? ChatReply::extract($last->output_data)
@@ -106,23 +96,6 @@ class ChatWebhookController extends Controller
             'message' => "The requested webhook \"{$request->method()} $token/chat\" is not registered.",
             'hint' => 'The workflow must be published and active for the production URL to work.',
         ], 404));
-    }
-
-    private function supplyNodeIds(Workflow $workflow): array
-    {
-        $definitions = $this->registry->definitions();
-
-        return $workflow->nodes
-            ->filter(function (Node $node) use ($definitions) {
-                $definition = $definitions[$node->type] ?? null;
-
-                return $definition
-                    && $definition->inputs === []
-                    && $definition->outputs !== []
-                    && collect($definition->outputs)->every(fn ($handle) => HandleType::isSpecial($handle));
-            })
-            ->pluck('id')
-            ->all();
     }
 
     private function text(array $config, string $key, string $default): string

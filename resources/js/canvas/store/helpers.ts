@@ -24,9 +24,12 @@ export const isPersistentNodeChange = (change: NodeChange<FlowNode>) =>
 export const isPersistentEdgeChange = (change: EdgeChange) =>
     change.type === 'remove' || change.type === 'add' || change.type === 'replace';
 
+const snapGrid = (value: number) => Math.round(value / 16) * 16;
+
 export const calculateNextPosition = (nodes: FlowNode[], position: XYPosition): XYPosition => {
     const threshold = 24;
-    let { x, y } = position;
+    let x = snapGrid(position.x);
+    let y = snapGrid(position.y);
 
     while (nodes.some((n) => Math.abs(n.position.x - x) < threshold && Math.abs(n.position.y - y) < threshold)) {
         x += 32;

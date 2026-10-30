@@ -16,6 +16,8 @@ use Throwable;
 
 class DateTimeToolNode implements NodeContract, ToolContract
 {
+    private const UNITS = ['seconds', 'minutes', 'hours', 'days', 'weeks', 'months', 'years'];
+
     public static function definition(): NodeDefinition
     {
         return new NodeDefinition(
@@ -150,13 +152,11 @@ class DateTimeToolNode implements NodeContract, ToolContract
         $now = Carbon::now($tz);
 
         return [
-            'timestamp' => $now->timestamp,
-            'iso' => $now->toIso8601String(),
-            'formatted' => $now->format($format),
-            'day_of_week' => $now->englishDayOfWeek,
-            'day_of_week_fa' => $this->persianDayOfWeek($now->dayOfWeek),
-            'timezone' => $tz->getName(),
-            'persian_date' => $this->toPersianDate($now),
+            'timestamp'    => $now->timestamp,
+            'iso'          => $now->toIso8601String(),
+            'formatted'    => $now->format($format),
+            ...$this->calendar($now),
+            'timezone'     => $tz->getName(),
             'is_leap_year' => $now->isLeapYear(),
         ];
     }
@@ -165,29 +165,14 @@ class DateTimeToolNode implements NodeContract, ToolContract
     {
         $rawDate = trim((string) ($arguments['date'] ?? ''));
         $base = $rawDate !== '' ? Carbon::parse($rawDate, $tz) : Carbon::now($tz);
-
-        $amount = (int) ($arguments['amount'] ?? 0);
-        $unit = strtolower(trim((string) ($arguments['unit'] ?? 'days')));
-
-        $modified = match ($unit) {
-            'seconds', 'second' => $base->copy()->addSeconds($amount),
-            'minutes', 'minute' => $base->copy()->addMinutes($amount),
-            'hours', 'hour' => $base->copy()->addHours($amount),
-            'days', 'day' => $base->copy()->addDays($amount),
-            'weeks', 'week' => $base->copy()->addWeeks($amount),
-            'months', 'month' => $base->copy()->addMonths($amount),
-            'years', 'year' => $base->copy()->addYears($amount),
-            default => $base->copy()->addDays($amount),
-        };
+        $modified = $base->copy()->{'add' . ucfirst($this->unit($arguments))}((int) ($arguments['amount'] ?? 0));
 
         return [
             'original_date' => $base->format($format),
             'modified_date' => $modified->format($format),
-            'iso' => $modified->toIso8601String(),
-            'day_of_week' => $modified->englishDayOfWeek,
-            'day_of_week_fa' => $this->persianDayOfWeek($modified->dayOfWeek),
-            'persian_date' => $this->toPersianDate($modified),
-            'timezone' => $tz->getName(),
+            'iso'           => $modified->toIso8601String(),
+            ...$this->calendar($modified),
+            'timezone'      => $tz->getName(),
         ];
     }
 
@@ -197,33 +182,20 @@ class DateTimeToolNode implements NodeContract, ToolContract
         $secondRaw = trim((string) ($arguments['target_date'] ?? ''));
 
         if ($firstRaw === '' || $secondRaw === '') {
-            return [
-                'error' => 'برای محاسبه فاصله زمانی، هر دو مقدار date و target_date الزامی هستند.',
-            ];
+            return ['error' => 'برای محاسبه فاصله زمانی، هر دو مقدار date و target_date الزامی هستند.'];
         }
 
         $first = Carbon::parse($firstRaw, $tz);
         $second = Carbon::parse($secondRaw, $tz);
-
-        $unit = strtolower(trim((string) ($arguments['unit'] ?? 'days')));
-
-        $diffValue = match ($unit) {
-            'seconds', 'second' => $first->diffInSeconds($second, false),
-            'minutes', 'minute' => $first->diffInMinutes($second, false),
-            'hours', 'hour' => $first->diffInHours($second, false),
-            'weeks', 'week' => $first->diffInWeeks($second, false),
-            'months', 'month' => $first->diffInMonths($second, false),
-            'years', 'year' => $first->diffInYears($second, false),
-            default => $first->diffInDays($second, false),
-        };
+        $unit = $this->unit($arguments);
 
         return [
-            'from_date' => $first->toIso8601String(),
-            'to_date' => $second->toIso8601String(),
-            'unit' => $unit,
-            'difference' => $diffValue,
-            'total_days' => $first->diffInDays($second, false),
-            'total_hours' => $first->diffInHours($second, false),
+            'from_date'      => $first->toIso8601String(),
+            'to_date'        => $second->toIso8601String(),
+            'unit'           => $unit,
+            'difference'     => $first->{'diffIn' . ucfirst($unit)}($second, false),
+            'total_days'     => $first->diffInDays($second, false),
+            'total_hours'    => $first->diffInHours($second, false),
             'human_readable' => $first->diffForHumans($second),
         ];
     }
@@ -231,22 +203,19 @@ class DateTimeToolNode implements NodeContract, ToolContract
     private function handleFormatDate(array $arguments, DateTimeZone $tz, string $format): array
     {
         $rawDate = trim((string) ($arguments['date'] ?? ''));
+
         if ($rawDate === '') {
-            return [
-                'error' => 'برای تغییر فرمت تاریخ، فیلد date الزامی است.',
-            ];
+            return ['error' => 'برای تغییر فرمت تاریخ، فیلد date الزامی است.'];
         }
 
         $date = Carbon::parse($rawDate, $tz);
 
         return [
             'formatted' => $date->format($format),
-            'iso' => $date->toIso8601String(),
+            'iso'       => $date->toIso8601String(),
             'timestamp' => $date->timestamp,
-            'day_of_week' => $date->englishDayOfWeek,
-            'day_of_week_fa' => $this->persianDayOfWeek($date->dayOfWeek),
-            'persian_date' => $this->toPersianDate($date),
-            'timezone' => $tz->getName(),
+            ...$this->calendar($date),
+            'timezone'  => $tz->getName(),
         ];
     }
 
@@ -287,5 +256,25 @@ class DateTimeToolNode implements NodeContract, ToolContract
         }
 
         return $carbon->toIso8601String();
+    }
+
+    private function unit(array $arguments): string
+    {
+        $unit = strtolower(trim((string) ($arguments['unit'] ?? 'days')));
+
+        if (! str_ends_with($unit, 's')) {
+            $unit .= 's';
+        }
+
+        return in_array($unit, self::UNITS, true) ? $unit : 'days';
+    }
+
+    private function calendar(Carbon $date): array
+    {
+        return [
+            'day_of_week'    => $date->englishDayOfWeek,
+            'day_of_week_fa' => $this->persianDayOfWeek($date->dayOfWeek),
+            'persian_date'   => $this->toPersianDate($date),
+        ];
     }
 }

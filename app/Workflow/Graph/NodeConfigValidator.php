@@ -4,12 +4,43 @@ namespace App\Workflow\Graph;
 
 use App\Workflow\DTOs\NodeDefinition;
 use Illuminate\Support\Collection;
+use App\Models\Node;
+use App\Workflow\Nodes\Triggers\ScheduleTriggerNode;
+use App\Workflow\Nodes\Triggers\WebhookTriggerNode;
 
 final class NodeConfigValidator
 {
     private const MAX_TEXT = 10000;
     private const MAX_PAIRS = 50;
     private const MAX_CONDITIONS = 50;
+
+    public function nodeMessages(Node $node, NodeDefinition $definition, Collection $credentials): array
+    {
+        $config = $node->config ?? [];
+        $errors = $this->errors($definition, $config, $credentials);
+
+        if ($node->type === 'trigger.webhook') {
+            $pathError = WebhookTriggerNode::pathError($config['path'] ?? null, $node->workflow_id);
+
+            if ($pathError) {
+                $errors['path'] = $pathError;
+            }
+        }
+
+        if ($node->type === 'trigger.schedule') {
+            $cronError = ScheduleTriggerNode::cronError($config);
+
+            if ($cronError) {
+                $errors['cron_expression'] = $cronError;
+            }
+        }
+
+        return array_map(
+            fn (string $key, string $message) => "نود «{$node->name}» ← فیلد «" . ($definition->configSchema[$key]['label'] ?? $key) . "»: $message",
+            array_keys($errors),
+            $errors,
+        );
+    }
 
     public function errors(NodeDefinition $definition, array $config, Collection $credentials, bool $complete = true): array
     {
@@ -22,7 +53,7 @@ final class NodeConfigValidator
                 continue;
             }
 
-            if (! $this->isFieldVisible($field, $config)) {
+            if (! $this->isFieldVisible($field, $config, $definition)) {
                 continue;
             }
 
@@ -46,7 +77,7 @@ final class NodeConfigValidator
                 continue;
             }
 
-            if (! $this->isFieldVisible($field, $config)) {
+            if (! $this->isFieldVisible($field, $config, $definition)) {
                 continue;
             }
 
@@ -86,15 +117,16 @@ final class NodeConfigValidator
     {
         return match ($field['type'] ?? null) {
             'text', 'textarea', 'password', 'code', 'dynamic_select' => $this->checkText($value),
-            'number'         => $this->checkNumber($field, $value, $complete),
-            'boolean'        => $this->checkBoolean($value),
-            'select'         => $complete ? $this->checkSelect($field, $value) : null,
-            'multiselect'    => $complete ? $this->checkMultiSelect($field, $value) : null,
-            'keyvalue'       => $this->checkKeyValue($value),
-            'credential'     => $complete ? $this->checkCredential($field, $value, $credentials) : null,
-            'model_select'   => $this->checkModelSelect($value),
-            'conditions'     => $this->checkConditions($value),
-            default          => 'نوع تنظیم پشتیبانی نمی‌شود.',
+            'number'       => $this->checkNumber($field, $value, $complete),
+            'boolean'      => $this->checkBoolean($value),
+            'select'       => $complete ? $this->checkSelect($field, $value) : null,
+            'multiselect'  => $complete ? $this->checkMultiSelect($field, $value) : null,
+            'keyvalue'     => $this->checkKeyValue($value),
+            'set_fields'   => $this->checkSetFields($value),
+            'credential'   => $complete ? $this->checkCredential($field, $value, $credentials) : null,
+            'model_select' => $this->checkModelSelect($value),
+            'conditions'   => $this->checkConditions($value),
+            default        => 'نوع تنظیم پشتیبانی نمی‌شود.',
         };
     }
 
@@ -105,12 +137,50 @@ final class NodeConfigValidator
             : 'مقدار نامعتبر است.';
     }
 
+    private function checkSetFields(mixed $value): ?string
+    {
+        if (! is_array($value) || count($value) > self::MAX_PAIRS) {
+            return 'فهرست فیلدها نامعتبر است.';
+        }
+
+        if ($value !== [] && ! array_is_list($value)) {
+            return $this->checkKeyValue($value);
+        }
+
+        $allowedTypes = ['string', 'number', 'boolean', 'array', 'object'];
+
+        foreach ($value as $item) {
+            if (! is_array($item)) {
+                return 'یکی از فیلدها نامعتبر است.';
+            }
+
+            $name = (string) ($item['name'] ?? '');
+            $type = (string) ($item['type'] ?? 'string');
+            $val = $item['value'] ?? '';
+
+            if (mb_strlen($name) > 200) {
+                return 'نام یکی از فیلدها بیش از حد طولانی است.';
+            }
+
+            if (! in_array($type, $allowedTypes, true)) {
+                return 'نوع یکی از فیلدها نامعتبر است.';
+            }
+
+            if ($val !== null && ! is_scalar($val)) {
+                return 'مقدار یکی از فیلدها نامعتبر است.';
+            }
+
+            if (is_string($val) && mb_strlen($val) > 5000) {
+                return 'مقدار یکی از فیلدها بیش از حد طولانی است.';
+            }
+        }
+
+        return null;
+    }
+
     private function checkMultiSelect(array $field, mixed $value): ?string
     {
-        $allowed = array_map(
-            fn ($option) => is_array($option) ? ($option['value'] ?? null) : $option,
-            $field['options'] ?? [],
-        );
+        $allowed = $this->allowedValues($field);
 
         if (! is_array($value) || ! array_is_list($value) || count($value) > count($allowed)) {
             return 'گزینه‌های انتخاب‌شده نامعتبر است.';
@@ -163,10 +233,7 @@ final class NodeConfigValidator
 
     private function checkSelect(array $field, mixed $value): ?string
     {
-        $allowed = array_map(
-            fn ($option) => is_array($option) ? ($option['value'] ?? null) : $option,
-            $field['options'] ?? [],
-        );
+        $allowed = $this->allowedValues($field);
 
         return is_string($value) && in_array($value, $allowed, true)
             ? null
@@ -237,5 +304,13 @@ final class NodeConfigValidator
         }
 
         return null;
+    }
+
+    private function allowedValues(array $field): array
+    {
+        return array_map(
+            fn ($option) => is_array($option) ? ($option['value'] ?? null) : $option,
+            $field['options'] ?? [],
+        );
     }
 }

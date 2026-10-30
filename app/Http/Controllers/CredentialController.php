@@ -122,19 +122,20 @@ class CredentialController extends Controller
         return response()->json([
             'data' => match ($credential->type) {
                 'gemini'     => $this->geminiModels($apiKey),
-                'openai'     => $this->openAiModels($credential),
+                'openai'     => $this->openAiModels(),
                 'anthropic'  => $this->anthropicModels(),
                 'deepseek'   => $this->deepSeekModels(),
-                'groq'       => $this->groqModels($apiKey),
+                'groq'       => $this->groqModels(),
                 'openrouter' => $this->openRouterModels(),
                 default      => [],
             },
         ]);
     }
 
+
     private function geminiModels(string $apiKey): array
     {
-        $cacheKey = 'gemini_text_models_v2_' . md5($apiKey);
+        $cacheKey = 'gemini_text_models_v3_' . md5($apiKey);
 
         return Cache::remember($cacheKey, now()->addHours(6), function () use ($apiKey) {
             try {
@@ -173,63 +174,78 @@ class CredentialController extends Controller
                 report($e);
             }
 
-            return [
-                ['value' => 'gemini-2.5-flash', 'label' => 'Gemini 2.5 Flash', 'description' => 'مدل سریع و هوشمند برای کارهای روزمره و ایجنت‌ها'],
-                ['value' => 'gemini-2.5-pro', 'label' => 'Gemini 2.5 Pro', 'description' => 'مدل پیشرفته برای استدلال عمیق و کدنویسی'],
-                ['value' => 'gemini-2.0-flash', 'label' => 'Gemini 2.0 Flash', 'description' => 'مدل پایدار و پرسرعت چندوجهی'],
-            ];
+            return $this->catalog([
+                ['gemini-4-argon', 'Gemini 4 Argon', 'جدیدترین و قدرتمندترین مدل پرچم‌دار گوگل برای استدلال پیچیده و ایجنت‌ها'],
+                ['gemini-3.8-flash', 'Gemini 3.8 Flash', 'مدل فوق‌سریع، هوشمند و بهینه برای کارهای روزمره و ایجنت‌ها'],
+                ['gemini-3.5-flash', 'Gemini 3.5 Flash', 'تعادل عالی سرعت و دقت برای پردازش‌های چندوجهی'],
+                ['gemini-3.5-flash-lite', 'Gemini 3.5 Flash-Lite', 'سریع‌ترین و اقتصادی‌ترین مدل برای پردازش‌های سبک و پرتعداد'],
+                ['gemini-3.1-pro-preview', 'Gemini 3.1 Pro', 'مدل پیشرفته برای استدلال عمیق، کدنویسی و تحلیل اسناد بزرگ'],
+            ]);
         });
     }
 
-    private function openAiModels(Credential $credential): array
+    private function catalog(array $rows): array
     {
-        return [
-            ['value' => 'gpt-4.1', 'label' => 'GPT-4.1', 'description' => 'مدل پرچم‌دار OpenAI برای کدنویسی، دستورپذیری دقیق و کار با ابزارها'],
-            ['value' => 'gpt-4.1-mini', 'label' => 'GPT-4.1 Mini', 'description' => 'سریع، هوشمند و مقرون‌به‌صرفه برای اکثر ورکفلوها'],
-            ['value' => 'gpt-4o', 'label' => 'GPT-4o', 'description' => 'مدل همه‌کاره و چندوجهی OpenAI'],
-            ['value' => 'gpt-4o-mini', 'label' => 'GPT-4o Mini', 'description' => 'مدل سبک، سریع و اقتصادی'],
-            ['value' => 'o3-mini', 'label' => 'o3-mini (Reasoning)', 'description' => 'مدل استدلال‌گر برای مسائل ریاضی، منطقی و تحلیلی'],
-        ];
+        return array_map(fn (array $row) => [
+            'value'       => $row[0],
+            'label'       => $row[1],
+            'description' => $row[2],
+        ], $rows);
+    }
+
+    private function openAiModels(): array
+    {
+        return $this->catalog([
+            ['gpt-6-astra', 'GPT-6 Astra', 'قدرتمندترین مدل پرچم‌دار OpenAI برای استدلال پیچیده، کدنویسی و ایجنت‌ها'],
+            ['gpt-6.1-sol', 'GPT-6.1 Sol', 'تعادل فوق‌العاده هوش و هزینه؛ بهترین انتخاب برای اکثر ورکفلوهای حرفه‌ای'],
+            ['gpt-6.1-terra', 'GPT-6.1 Terra', 'مدل سریع و دقیق برای نگارش طبیعی، تحلیل بصری و اجرای ابزارها'],
+            ['gpt-6-luna', 'GPT-6 Luna', 'سریع‌ترین و اقتصادی‌ترین مدل نسل ۶ برای پردازش‌های سبک و پرتعداد'],
+            ['gpt-5.6-sol', 'GPT-5.6 Sol', 'مدل پایدار نسل ۵ با دقت بالا در استدلال و تحلیل داده'],
+            ['gpt-5.5', 'GPT-5.5', 'مدل همه‌کاره و چندوجهی نسل ۵'],
+        ]);
     }
 
     private function anthropicModels(): array
     {
-        return [
-            ['value' => 'claude-sonnet-4-20250514', 'label' => 'Claude 4 Sonnet', 'description' => 'بهترین تعادل هوش، سرعت و دقت در اجرای ابزارها و کدنویسی'],
-            ['value' => 'claude-opus-4-20250514', 'label' => 'Claude 4 Opus', 'description' => 'قدرتمندترین مدل Anthropic برای وظایف بسیار پیچیده'],
-            ['value' => 'claude-3-7-sonnet-latest', 'label' => 'Claude 3.7 Sonnet', 'description' => 'مدل استدلال هیبریدی با دقت بسیار بالا'],
-            ['value' => 'claude-3-5-haiku-latest', 'label' => 'Claude 3.5 Haiku', 'description' => 'سریع‌ترین و اقتصادی‌ترین مدل Claude'],
-        ];
+        return $this->catalog([
+            ['claude-fable-5-1', 'Claude Fable 5.1', 'پیشرفته‌ترین مدل Anthropic برای استدلال‌های بسیار سنگین و ایجنت‌های خودمختار'],
+            ['claude-opus-5-5', 'Claude Opus 5.5', 'مدل قدرتمند برای کدنویسی پیشرفته، تحلیل عمیق و وظایف چندمرحله‌ای'],
+            ['claude-sonnet-5-5', 'Claude Sonnet 5.5', 'بهترین ترکیب سرعت و هوش برای کار با ابزارها و ورکفلوهای عملیاتی'],
+            ['claude-haiku-5-5', 'Claude Haiku 5.5', 'سریع‌ترین و کم‌هزینه‌ترین مدل Claude برای پاسخ‌دهی آنی'],
+        ]);
     }
 
     private function deepSeekModels(): array
     {
-        return [
-            ['value' => 'deepseek-chat', 'label' => 'DeepSeek V3 (Chat)', 'description' => 'مدل سریع و فوق‌العاده قوی برای مکالمه، کدنویسی و فراخوانی ابزارها'],
-            ['value' => 'deepseek-reasoner', 'label' => 'DeepSeek R1 (Reasoner)', 'description' => 'مدل استدلال‌گر عمیق برای حل مسائل پیچیده'],
-        ];
+        return $this->catalog([
+            ['deepseek-flash', 'DeepSeek V4.1 Flash', 'مدل نسل جدید، فوق‌سریع و بسیار هوشمند برای ایجنت‌ها، کدنویسی و فراخوانی ابزار'],
+            ['deepseek-chat', 'DeepSeek V4 Pro (Chat)', 'مدل پرچم‌دار DeepSeek برای مکالمه، کدنویسی و تحلیل‌های سنگین'],
+            ['deepseek-reasoner', 'DeepSeek R1 / Reasoner', 'مدل استدلال‌گر عمیق برای حل مسائل پیچیده ریاضی و منطقی'],
+        ]);
     }
 
-    private function groqModels(string $apiKey): array
+    private function groqModels(): array
     {
-        return [
-            ['value' => 'llama-3.3-70b-versatile', 'label' => 'Llama 3.3 70B Versatile', 'description' => 'مدل قدرتمند متا با سرعت فوق‌العاده بالا و پشتیبانی از ابزارها'],
-            ['value' => 'llama-3.1-8b-instant', 'label' => 'Llama 3.1 8B Instant', 'description' => 'پاسخ‌دهی آنی و فوق‌سریع برای پردازش‌های سبک'],
-            ['value' => 'qwen-qwq-32b', 'label' => 'Qwen QwQ 32B', 'description' => 'مدل استدلال‌گر و چندزبانه قدرتمند (عالی برای زبان فارسی)'],
-            ['value' => 'deepseek-r1-distill-llama-70b', 'label' => 'DeepSeek R1 Distill Llama 70B', 'description' => 'ترکیب قدرت استدلال DeepSeek R1 با سرعت Groq'],
-        ];
+        return $this->catalog([
+            ['gpt-oss-120b', 'OpenAI GPT-OSS 120B', 'مدل متن‌باز قدرتمند با سرعت اجرای فوق‌العاده روی تراشه‌های LPU'],
+            ['llama-3.3-70b-versatile', 'Llama 3.3 70B Versatile', 'مدل قدرتمند متا با سرعت بالا و پشتیبانی عالی از ابزارها'],
+            ['qwen-qwq-32b', 'Qwen QwQ 32B', 'مدل استدلال‌گر و چندزبانه قدرتمند (عالی برای زبان فارسی)'],
+            ['llama-3.1-8b-instant', 'Llama 3.1 8B Instant', 'پاسخ‌دهی آنی و فوق‌سریع برای پردازش‌های سبک'],
+        ]);
     }
 
     private function openRouterModels(): array
     {
-        return [
-            ['value' => 'openai/gpt-4o-mini', 'label' => 'OpenAI: GPT-4o Mini', 'description' => 'سریع و اقتصادی از طریق OpenRouter'],
-            ['value' => 'openai/gpt-4.1', 'label' => 'OpenAI: GPT-4.1', 'description' => 'مدل پرچم‌دار OpenAI'],
-            ['value' => 'anthropic/claude-sonnet-4', 'label' => 'Anthropic: Claude 4 Sonnet', 'description' => 'مدل محبوب Claude 4 از طریق OpenRouter'],
-            ['value' => 'google/gemini-2.5-flash', 'label' => 'Google: Gemini 2.5 Flash', 'description' => 'مدل سریع گوگل از طریق OpenRouter'],
-            ['value' => 'deepseek/deepseek-chat-v3-0324', 'label' => 'DeepSeek: V3', 'description' => 'مدل DeepSeek V3 از طریق OpenRouter'],
-            ['value' => 'meta-llama/llama-3.3-70b-instruct', 'label' => 'Meta: Llama 3.3 70B', 'description' => 'مدل متن‌باز متا'],
-        ];
+        return $this->catalog([
+            ['openai/gpt-6.1-sol', 'OpenAI: GPT-6.1 Sol', 'بهترین تعادل هوش و قیمت از خانواده GPT-6'],
+            ['openai/gpt-6-astra', 'OpenAI: GPT-6 Astra', 'مدل پرچم‌دار OpenAI از طریق OpenRouter'],
+            ['openai/gpt-6-luna', 'OpenAI: GPT-6 Luna', 'مدل سریع و اقتصادی OpenAI'],
+            ['anthropic/claude-sonnet-5.5', 'Anthropic: Claude Sonnet 5.5', 'مدل محبوب و متوازن Claude 5.5'],
+            ['anthropic/claude-opus-5.5', 'Anthropic: Claude Opus 5.5', 'مدل قدرتمند کدنویسی و ایجنت Claude 5.5'],
+            ['google/gemini-4-argon', 'Google: Gemini 4 Argon', 'مدل پرچم‌دار نسل ۴ گوگل از طریق OpenRouter'],
+            ['google/gemini-3.8-flash', 'Google: Gemini 3.8 Flash', 'مدل سریع و بهینه گوگل'],
+            ['deepseek/deepseek-v4.1-flash', 'DeepSeek: V4.1 Flash', 'مدل پرطرفدار و اقتصادی DeepSeek V4.1'],
+        ]);
     }
 
     private function isTextModel(array $model): bool

@@ -9,7 +9,6 @@ class GroqChatModelNode extends BaseChatModelNode
     protected static function description(): string { return 'اجرای فوق‌سریع مدل‌های متن‌باز (Llama 3.3, Qwen, Mixtral) روی زیرساخت Groq.'; }
     protected static function credentialType(): string { return 'groq'; }
     protected static function credentialLabel(): string { return 'اعتبارنامه Groq'; }
-    protected static function defaultModel(): string { return 'llama-3.3-70b-versatile'; }
     protected static function icon(): string { return 'brand:groq'; }
     protected static function color(): string { return 'orange'; }
 }

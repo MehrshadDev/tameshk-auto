@@ -22,6 +22,19 @@ final class GmailClient
         return (new GoogleTokenProvider($this->credential))->getValidAccessToken();
     }
 
+    private function request(string $method, string $path, array $data = [], int $timeout = 30): array
+    {
+        $response = Http::withToken($this->getValidAccessToken())
+            ->timeout($timeout)
+            ->{$method}(self::BASE_API . $path, $data);
+
+        if ($response->failed()) {
+            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
+        }
+
+        return (array) $response->json();
+    }
+
     public function sendMessage(
         string $to,
         string $subject,
@@ -33,62 +46,34 @@ final class GmailClient
         array $cc = [],
         array $bcc = []
     ): array {
-        $token = $this->getValidAccessToken();
-
-        $rawMime = $this->buildMimeMessage(
-            to: $to,
-            subject: $subject,
-            body: $body,
-            isHtml: $isHtml,
-            inReplyTo: $inReplyTo,
-            references: $references,
-            cc: $cc,
-            bcc: $bcc
-        );
-
         $payload = [
-            'raw' => $this->base64UrlEncode($rawMime),
+            'raw' => $this->base64UrlEncode($this->buildMimeMessage(
+                to: $to,
+                subject: $subject,
+                body: $body,
+                isHtml: $isHtml,
+                inReplyTo: $inReplyTo,
+                references: $references,
+                cc: $cc,
+                bcc: $bcc
+            )),
         ];
 
         if (! empty($threadId)) {
             $payload['threadId'] = $threadId;
         }
 
-        $response = Http::withToken($token)
-            ->timeout(30)
-            ->post(self::BASE_API . '/messages/send', $payload);
-
-        if ($response->failed()) {
-            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
-        }
-
-        return (array) $response->json();
+        return $this->request('post', '/messages/send', $payload);
     }
 
     public function getMessage(string $messageId, string $format = 'full'): array
     {
-        $token = $this->getValidAccessToken();
-
-        $response = Http::withToken($token)
-            ->timeout(30)
-            ->get(self::BASE_API . "/messages/$messageId", [
-                'format' => $format,
-            ]);
-
-        if ($response->failed()) {
-            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
-        }
-
-        return $this->parseMessage((array) $response->json());
+        return $this->parseMessage($this->request('get', "/messages/$messageId", ['format' => $format]));
     }
 
     public function listMessages(string $query = '', int $maxResults = 10, ?string $pageToken = null): array
     {
-        $token = $this->getValidAccessToken();
-
-        $params = [
-            'maxResults' => min(max($maxResults, 1), 100),
-        ];
+        $params = ['maxResults' => min(max($maxResults, 1), 100)];
 
         if (trim($query) !== '') {
             $params['q'] = trim($query);
@@ -98,78 +83,32 @@ final class GmailClient
             $params['pageToken'] = $pageToken;
         }
 
-        $response = Http::withToken($token)
-            ->timeout(30)
-            ->get(self::BASE_API . '/messages', $params);
-
-        if ($response->failed()) {
-            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
-        }
-
-        return (array) $response->json();
+        return $this->request('get', '/messages', $params);
     }
 
     public function modifyMessage(string $messageId, array $addLabelIds = [], array $removeLabelIds = []): array
     {
-        $token = $this->getValidAccessToken();
-
-        $response = Http::withToken($token)
-            ->timeout(20)
-            ->post(self::BASE_API . "/messages/$messageId/modify", [
-                'addLabelIds' => array_values($addLabelIds),
-                'removeLabelIds' => array_values($removeLabelIds),
-            ]);
-
-        if ($response->failed()) {
-            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
-        }
-
-        return (array) $response->json();
+        return $this->request('post', "/messages/$messageId/modify", [
+            'addLabelIds'    => array_values($addLabelIds),
+            'removeLabelIds' => array_values($removeLabelIds),
+        ], 20);
     }
 
     public function trashMessage(string $messageId): array
     {
-        $token = $this->getValidAccessToken();
-
-        $response = Http::withToken($token)
-            ->timeout(20)
-            ->post(self::BASE_API . "/messages/$messageId/trash");
-
-        if ($response->failed()) {
-            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
-        }
-
-        return (array) $response->json();
+        return $this->request('post', "/messages/$messageId/trash", [], 20);
     }
 
     public function deleteMessage(string $messageId): bool
     {
-        $token = $this->getValidAccessToken();
-
-        $response = Http::withToken($token)
-            ->timeout(20)
-            ->delete(self::BASE_API . "/messages/$messageId");
-
-        if ($response->failed()) {
-            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
-        }
+        $this->request('delete', "/messages/$messageId", [], 20);
 
         return true;
     }
 
     public function getProfile(): array
     {
-        $token = $this->getValidAccessToken();
-
-        $response = Http::withToken($token)
-            ->timeout(15)
-            ->get(self::BASE_API . '/profile');
-
-        if ($response->failed()) {
-            throw NodeExecutionException::because($this->describeError($response->json(), $response->body()));
-        }
-
-        return (array) $response->json();
+        return $this->request('get', '/profile', [], 15);
     }
 
     private function buildMimeMessage(

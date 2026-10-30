@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Icon } from '@canvas/components/ui/Icon';
-
-const RTL_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+import { textDir } from '@canvas/lib/fields';
 
 type MarkdownRendererProps = {
     content: string;
@@ -38,12 +37,12 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
 }
 
 function parseInline(text: string): ReactNode[] {
-    const regex = /(\[.*?\]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`.*?`|\$.*?\$)/g;
+    const regex = /(\[.*?]\(.*?\)|\*\*.*?\*\*|\*.*?\*|`.*?`|\$.*?\$)/g;
     const parts = text.split(regex);
 
     return parts.map((part, index) => {
         if (part.startsWith('[') && part.includes('](') && part.endsWith(')')) {
-            const match = part.match(/^\[(.*?)\]\((.*?)\)$/);
+            const match = part.match(/^\[(.*?)]\((.*?)\)$/);
             if (match) {
                 return (
                     <a
@@ -215,10 +214,8 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
             return;
         }
 
-        const isLineRtl = RTL_REGEX.test(line);
-
         elements.push(
-            <p key={`p-${index}`} dir={isLineRtl ? 'rtl' : 'ltr'} className="leading-6">
+            <p key={`p-${index}`} dir={textDir(line)} className="leading-6">
                 {parseInline(line)}
             </p>
         );
@@ -234,11 +231,11 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
         );
     }
 
-    const isOverallRtl = RTL_REGEX.test(content);
+    const overallDir = textDir(content);
 
     return (
         <div
-            dir={isOverallRtl ? 'rtl' : 'ltr'}
+            dir={overallDir}
             className={`space-y-1 select-text text-start text-xs text-content-main ${className}`}
         >
             {elements}

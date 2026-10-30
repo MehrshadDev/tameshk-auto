@@ -1,6 +1,6 @@
 import { Icon } from '@canvas/components/ui/Icon';
 import { Tooltip } from '@canvas/components/ui/Tooltip';
-import { isTelegramTrigger, isGmailTrigger, isSheetsTrigger, isTestableTrigger } from '@canvas/lib/triggers';
+import { isWebhookTrigger, isTelegramTrigger, isGmailTrigger, isSheetsTrigger, isTestableTrigger } from '@canvas/lib/triggers';
 import { useColorMode } from '@canvas/lib/useColorMode';
 import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
 import { SaveButton } from '@canvas/components/SaveButton';
@@ -28,13 +28,15 @@ export function TopBar({ backUrl }: TopBarProps) {
     const isBusy = isRunning || runningNodeId !== null;
     const runningTrigger = nodes.find((n) => n.id === runningNodeId);
     const listeningText = runningTrigger
-        ? isTelegramTrigger(runningTrigger.data.nodeType)
-            ? 'در انتظار پیام تلگرام...'
-            : isGmailTrigger(runningTrigger.data.nodeType)
-                ? 'در انتظار ایمیل جدید...'
-                : isSheetsTrigger(runningTrigger.data.nodeType)
-                    ? 'در انتظار تغییر در شیت...'
-                    : null
+        ? isWebhookTrigger(runningTrigger.data.nodeType)
+            ? 'در انتظار دریافت وبهوک...'
+            : isTelegramTrigger(runningTrigger.data.nodeType)
+                ? 'در انتظار پیام تلگرام...'
+                : isGmailTrigger(runningTrigger.data.nodeType)
+                    ? 'در انتظار ایمیل جدید...'
+                    : isSheetsTrigger(runningTrigger.data.nodeType)
+                        ? 'در انتظار تغییر در شیت...'
+                        : null
         : null;
 
     const handleBack = () => {

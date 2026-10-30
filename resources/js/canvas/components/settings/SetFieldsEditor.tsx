@@ -260,6 +260,15 @@ export function SetFieldsEditor({ value, onChange }: SetFieldsEditorProps) {
 
                 return (
                     <div key={item.id} className="group flex items-start gap-2" dir="ltr">
+                        <button
+                            type="button"
+                            aria-label="حذف فیلد"
+                            onClick={() => remove(item.id)}
+                            className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-lg text-content-muted opacity-60 transition hover:bg-primary/10 hover:text-primary group-hover:opacity-100"
+                        >
+                            <Icon name="trash" className="size-3.5" />
+                        </button>
+
                         <div className="min-w-0 flex-1 rounded-xl border border-line-border bg-field shadow-2xs transition focus-within:border-primary/60">
                             <div className="flex items-center border-b border-line-border">
                                 <input
@@ -355,15 +364,6 @@ export function SetFieldsEditor({ value, onChange }: SetFieldsEditorProps) {
                                 )}
                             </div>
                         </div>
-
-                        <button
-                            type="button"
-                            aria-label="حذف فیلد"
-                            onClick={() => remove(item.id)}
-                            className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-lg text-content-muted opacity-60 transition hover:bg-primary/10 hover:text-primary group-hover:opacity-100"
-                        >
-                            <Icon name="trash" className="size-3.5" />
-                        </button>
                     </div>
                 );
             })}

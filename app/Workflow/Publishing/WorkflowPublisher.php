@@ -5,13 +5,13 @@ namespace App\Workflow\Publishing;
 use App\Models\Credential;
 use App\Models\Node;
 use App\Models\Workflow;
+use App\Workflow\Contracts\PublishableTriggerContract;
 use App\Workflow\Contracts\WebhookTriggerContract;
 use App\Workflow\Enums\HandleType;
 use App\Workflow\Exceptions\NodeExecutionException;
 use App\Workflow\Exceptions\WorkflowPublishException;
 use App\Workflow\Graph\NodeConfigValidator;
 use App\Workflow\Registry\NodeRegistry;
-use App\Workflow\Contracts\PublishableTriggerContract;
 use Throwable;
 
 final class WorkflowPublisher
@@ -25,13 +25,6 @@ final class WorkflowPublisher
     public static function secretFor(Workflow $workflow): string
     {
         return hash_hmac('sha256', (string) $workflow->webhook_token, (string) config('app.key'));
-    }
-
-    public function webhookUrl(Workflow $workflow): string
-    {
-        $base = rtrim((string) (config('services.telegram.webhook_base_url') ?: config('app.url')), '/');
-
-        return $base . route('webhooks.telegram', ['token' => $workflow->webhook_token], false);
     }
 
     public function publish(Workflow $workflow): void
@@ -78,6 +71,28 @@ final class WorkflowPublisher
         }
     }
 
+    private function findTrigger(Workflow $workflow): ?Node
+    {
+        return $workflow->nodes->first(fn (Node $node) => str_starts_with($node->type, 'trigger.'));
+    }
+
+    private function resolveTrigger(Workflow $workflow): Node
+    {
+        $trigger = $this->findTrigger($workflow);
+
+        if (! $trigger) {
+            throw WorkflowPublishException::because('ورکفلو نود شروع‌کننده ندارد. یک شروع‌کننده اضافه کنید.');
+        }
+
+        if (! $this->registry->has($trigger->type) || ! $this->registry->make($trigger->type) instanceof PublishableTriggerContract) {
+            throw WorkflowPublishException::because(
+                "شروع‌کننده «{$trigger->name}» فقط در محیط تست کار می‌کند و قابل انتشار نیست."
+            );
+        }
+
+        return $trigger;
+    }
+
     private function activateTrigger(Workflow $workflow): void
     {
         $workflow->load('nodes', 'edges');
@@ -119,7 +134,7 @@ final class WorkflowPublisher
     {
         $workflow->load('nodes');
 
-        $trigger = $workflow->nodes->first(fn (Node $node) => str_starts_with($node->type, 'trigger.'));
+        $trigger = $this->findTrigger($workflow);
 
         if (! $trigger || ! $this->registry->has($trigger->type)) {
             return;
@@ -144,23 +159,6 @@ final class WorkflowPublisher
         }
     }
 
-    private function resolveTrigger(Workflow $workflow): Node
-    {
-        $trigger = $workflow->nodes->first(fn (Node $node) => str_starts_with($node->type, 'trigger.'));
-
-        if (! $trigger) {
-            throw WorkflowPublishException::because('ورکفلو نود شروع‌کننده ندارد. یک شروع‌کننده اضافه کنید.');
-        }
-
-        if (! $this->registry->has($trigger->type) || ! $this->registry->make($trigger->type) instanceof PublishableTriggerContract) {
-            throw WorkflowPublishException::because(
-                "شروع‌کننده «{$trigger->name}» فقط در محیط تست کار می‌کند و قابل انتشار نیست. برای انتشار از شروع‌کننده‌ای مثل «Telegram Trigger» تلگرام یا «Telegram Trigger» استفاده کنید."
-            );
-        }
-
-        return $trigger;
-    }
-
     private function assertValid(Workflow $workflow, Node $trigger): void
     {
         $definitions = $this->registry->definitions();
@@ -179,10 +177,7 @@ final class WorkflowPublisher
                 continue;
             }
 
-            foreach ($this->validator->errors($definition, $node->config ?? [], $credentials) as $key => $message) {
-                $label = $definition->configSchema[$key]['label'] ?? $key;
-                $errors[] = "نود «{$node->name}» ← فیلد «{$label}»: $message";
-            }
+            array_push($errors, ...$this->validator->nodeMessages($node, $definition, $credentials));
         }
 
         if (! $workflow->edges->contains(fn ($edge) => $edge->source_node_id === $trigger->id)) {
@@ -194,15 +189,8 @@ final class WorkflowPublisher
                 continue;
             }
 
-            $model = $this->supplyNode($workflow, $agent, HandleType::ChatModel->value);
-
-            if (! $model) {
+            if (! $this->supplyNode($workflow, $agent, HandleType::ChatModel->value)) {
                 $errors[] = "نود «{$agent->name}»: به هیچ مدل چتی متصل نیست.";
-                continue;
-            }
-
-            if (empty($model->config['credential_id'])) {
-                $errors[] = "نود «{$model->name}» ← فیلد «اعتبارنامه API»: این فیلد الزامی است.";
             }
         }
 

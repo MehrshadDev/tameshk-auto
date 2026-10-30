@@ -10,6 +10,7 @@ use App\Workflow\DTOs\NodeDefinition;
 use App\Workflow\DTOs\NodeResult;
 use App\Workflow\Enums\NodeCategory;
 use App\Workflow\Exceptions\NodeExecutionException;
+use App\Workflow\Support\TelegramApi;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -203,9 +204,7 @@ class TelegramTriggerNode implements NodeContract, WebhookTriggerContract
 
     private function apiUrl(string $botToken, string $method): string
     {
-        $baseUrl = rtrim((string) config('services.telegram.base_url', 'https://api.telegram.org'), '/');
-
-        return "$baseUrl/bot$botToken/$method";
+        return TelegramApi::url($botToken, $method);
     }
 
     private function describeWebhookError(string $description): string

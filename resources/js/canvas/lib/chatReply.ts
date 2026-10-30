@@ -15,7 +15,7 @@ export const extractReply = (output: unknown): string => {
             }
         }
 
-        return JSON.stringify(output, null, 2);
+        return '```json\n' + JSON.stringify(output, null, 2) + '\n```';
     }
 
     return '';

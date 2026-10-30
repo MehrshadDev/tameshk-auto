@@ -35,30 +35,30 @@ new class extends Component {
     public function mount(): void
     {
         $this->search = mb_substr(trim($this->search), 0, 100);
-        $this->status = in_array($this->status, ['all', 'active', 'inactive'], true) ? $this->status : 'all';
-    }
-
-    public function updatedSearch(): void
-    {
-        $this->search = mb_substr($this->search, 0, 100);
-        $this->resetPage();
+        $this->status = $this->normalizeStatus($this->status);
     }
 
     public function updatedStatus(): void
     {
-        $this->status = in_array($this->status, ['all', 'active', 'inactive'], true) ? $this->status : 'all';
+        $this->status = $this->normalizeStatus($this->status);
         $this->resetPage();
     }
 
     public function setStatus(string $status): void
     {
-        $status = in_array($status, ['all', 'active', 'inactive'], true) ? $status : 'all';
+        $status = $this->normalizeStatus($status);
 
         if ($this->status === $status) {
             return;
         }
 
         $this->status = $status;
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->search = mb_substr($this->search, 0, 100);
         $this->resetPage();
     }
 
@@ -254,6 +254,11 @@ new class extends Component {
     private function ownedWorkflow(?int $id): Workflow
     {
         return auth()->user()->workflows()->findOrFail($id);
+    }
+
+    private function normalizeStatus(string $status): string
+    {
+        return in_array($status, ['all', 'active', 'inactive'], true) ? $status : 'all';
     }
 
     private function notify(string $message, string $type = 'success'): void

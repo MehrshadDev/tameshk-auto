@@ -6,6 +6,10 @@ use App\Workflow\Exceptions\NodeExecutionException;
 
 final class MathEvaluator
 {
+    private const OPERATORS = ['+', '-', '*', '/', '^', '%'];
+    private const DELIMITERS = ['(', ')', ','];
+    private const PRECEDENCE = ['+' => 1, '-' => 1, '*' => 2, '/' => 2, '%' => 2, '^' => 3];
+
     public static function evaluate(string $expression): float|int
     {
         $clean = preg_replace('/\s+/', '', strtolower($expression));
@@ -30,32 +34,28 @@ final class MathEvaluator
             $ch = $expr[$i];
 
             if (is_numeric($ch) || $ch === '.') {
-                $num = '';
-                while ($i < $len && (is_numeric($expr[$i]) || $expr[$i] === '.')) {
-                    $num .= $expr[$i];
-                    $i++;
-                }
-                $tokens[] = ['type' => 'number', 'value' => (float) $num];
+                $tokens[] = [
+                    'type'  => 'number',
+                    'value' => (float) self::consume($expr, $i, fn ($c) => is_numeric($c) || $c === '.'),
+                ];
                 continue;
             }
 
             if (ctype_alpha($ch)) {
-                $func = '';
-                while ($i < $len && ctype_alpha($expr[$i])) {
-                    $func .= $expr[$i];
-                    $i++;
-                }
-                $tokens[] = ['type' => 'func', 'value' => $func];
+                $tokens[] = ['type' => 'func', 'value' => self::consume($expr, $i, 'ctype_alpha')];
                 continue;
             }
 
-            if (in_array($ch, ['+', '-', '*', '/', '^', '%', '(', ')', ','], true)) {
-                if ($ch === '-' && ($i === 0 || in_array($tokens[count($tokens) - 1]['value'] ?? '', ['+', '-', '*', '/', '^', '%', '('], true))) {
+            if (in_array($ch, [...self::OPERATORS, ...self::DELIMITERS], true)) {
+                $previous = $tokens[count($tokens) - 1]['value'] ?? null;
+
+                if ($ch === '-' && ($previous === null || in_array($previous, [...self::OPERATORS, '('], true))) {
                     $tokens[] = ['type' => 'number', 'value' => 0];
                     $tokens[] = ['type' => 'op', 'value' => '-'];
                 } else {
-                    $tokens[] = ['type' => in_array($ch, ['(', ')', ','], true) ? $ch : 'op', 'value' => $ch];
+                    $tokens[] = ['type' => in_array($ch, self::DELIMITERS, true) ? $ch : 'op', 'value' => $ch];
                 }
+
                 $i++;
                 continue;
             }
@@ -66,36 +66,44 @@ final class MathEvaluator
         return $tokens;
     }
 
+    private static function consume(string $expr, int &$i, callable $accepts): string
+    {
+        $start = $i;
+        $len = strlen($expr);
+
+        while ($i < $len && $accepts($expr[$i])) {
+            $i++;
+        }
+
+        return substr($expr, $start, $i - $start);
+    }
+
     private static function shuntingYard(array $tokens): array
     {
         $output = [];
         $ops = [];
-        $precedence = ['+' => 1, '-' => 1, '*' => 2, '/' => 2, '%' => 2, '^' => 3];
 
         foreach ($tokens as $token) {
             if ($token['type'] === 'number') {
                 $output[] = $token;
-            } elseif ($token['type'] === 'func') {
+            } elseif ($token['type'] === 'func' || $token['type'] === '(') {
                 $ops[] = $token;
             } elseif ($token['type'] === ',') {
-                while (! empty($ops) && end($ops)['value'] !== '(') {
-                    $output[] = array_pop($ops);
-                }
+                self::flushToParen($ops, $output);
             } elseif ($token['type'] === 'op') {
-                while (! empty($ops) && end($ops)['type'] === 'op' &&
-                    (($precedence[end($ops)['value']] > $precedence[$token['value']]) ||
-                        ($precedence[end($ops)['value']] === $precedence[$token['value']] && $token['value'] !== '^'))
+                while (
+                    ! empty($ops)
+                    && end($ops)['type'] === 'op'
+                    && self::takesPrecedence(end($ops)['value'], $token['value'])
                 ) {
                     $output[] = array_pop($ops);
                 }
-                $ops[] = $token;
-            } elseif ($token['type'] === '(') {
+
                 $ops[] = $token;
             } elseif ($token['type'] === ')') {
-                while (! empty($ops) && end($ops)['value'] !== '(') {
-                    $output[] = array_pop($ops);
-                }
+                self::flushToParen($ops, $output);
                 array_pop($ops);
+
                 if (! empty($ops) && end($ops)['type'] === 'func') {
                     $output[] = array_pop($ops);
                 }
@@ -107,6 +115,21 @@ final class MathEvaluator
         }
 
         return $output;
+    }
+
+    private static function flushToParen(array &$ops, array &$output): void
+    {
+        while (! empty($ops) && end($ops)['value'] !== '(') {
+            $output[] = array_pop($ops);
+        }
+    }
+
+    private static function takesPrecedence(string $top, string $incoming): bool
+    {
+        $a = self::PRECEDENCE[$top];
+        $b = self::PRECEDENCE[$incoming];
+
+        return $a > $b || ($a === $b && $incoming !== '^');
     }
 
     private static function calculateRpn(array $rpn): float|int

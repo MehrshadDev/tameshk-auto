@@ -88,55 +88,21 @@ new class extends Component {
     </div>
 
     <form wire:submit="login" class="space-y-4">
+        <x-auth.honeypot/>
 
-        <div class="sr-only" aria-hidden="true">
-            <label for="website_url">وب‌سایت</label>
-            <input type="text" id="website_url" wire:model="honeypot" tabindex="-1" autocomplete="off">
-        </div>
-
-        <x-ui.input
-            name="email"
-            type="email"
-            wire:model="email"
-            label="ایمیل"
-            placeholder="example@gmail.com"
-            autocomplete="email"
-            autofocus
-        />
+        <x-ui.input name="email" type="email" wire:model="email" label="ایمیل" placeholder="example@gmail.com" autocomplete="email" autofocus/>
 
         <div>
-            <x-ui.input
-                name="password"
-                type="password"
-                wire:model="password"
-                label="رمز عبور"
-                placeholder="••••••••"
-                autocomplete="current-password"
-            />
+            <x-ui.input name="password" type="password" wire:model="password" label="رمز عبور" placeholder="••••••••" autocomplete="current-password"/>
 
             <div class="mt-2 text-start">
-                <a
-                    href="{{ route('password.request') }}"
-                    wire:navigate
-                    class="text-xs text-primary hover:underline font-medium cursor-pointer"
-                >
+                <a href="{{ route('password.request') }}" wire:navigate class="text-xs text-primary hover:underline font-medium cursor-pointer">
                     رمز عبور را فراموش کرده‌اید؟
                 </a>
             </div>
         </div>
 
-        <button
-            type="submit"
-            wire:loading.attr="disabled"
-            wire:target="login"
-            class="w-full py-2.5 rounded-xl bg-primary text-white font-medium
-                   hover:opacity-90 active:scale-[0.99] cursor-pointer
-                   transition disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-            <span wire:loading.remove wire:target="login">ورود</span>
-            <span wire:loading wire:target="login">در حال ورود...</span>
-        </button>
-
+        <x-auth.submit target="login" label="ورود" loading="در حال ورود..."/>
     </form>
 
     <p class="mt-6 text-center text-sm text-content-muted">

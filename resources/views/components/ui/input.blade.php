@@ -62,36 +62,8 @@
                 :aria-label="visible ? 'مخفی کردن رمز' : 'نمایش رمز'"
                 class="absolute inset-y-0 left-3 flex items-center text-content-muted hover:text-content-main transition"
             >
-                <span
-                    x-show="!visible"
-                    class="inline-block w-5 h-5 bg-current"
-                    style="
-                        -webkit-mask-image: url('{{ asset('icons/tabler/eye.svg') }}');
-                        -webkit-mask-position: center;
-                        -webkit-mask-size: contain;
-                        -webkit-mask-repeat: no-repeat;
-                        mask-image: url('{{ asset('icons/tabler/eye.svg') }}');
-                        mask-position: center;
-                        mask-size: contain;
-                        mask-repeat: no-repeat;
-                    "
-                ></span>
-
-                <span
-                    x-show="visible"
-                    x-cloak
-                    class="inline-block w-5 h-5 bg-current"
-                    style="
-                        -webkit-mask-image: url('{{ asset('icons/tabler/eye-closed.svg') }}');
-                        -webkit-mask-position: center;
-                        -webkit-mask-size: contain;
-                        -webkit-mask-repeat: no-repeat;
-                        mask-image: url('{{ asset('icons/tabler/eye-closed.svg') }}');
-                        mask-position: center;
-                        mask-size: contain;
-                        mask-repeat: no-repeat;
-                    "
-                ></span>
+                <x-ui.icon name="eye" x-show="!visible"/>
+                <x-ui.icon name="eye-closed" x-show="visible" x-cloak/>
             </button>
         @endif
     </div>

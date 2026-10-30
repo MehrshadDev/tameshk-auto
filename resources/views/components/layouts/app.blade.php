@@ -9,23 +9,12 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <meta name="robots" content="{{ $robots }}">
-    <link rel="canonical" href="{{ $canonical ?? request()->url() }}">
-
-
-    <title>{{ $title }}</title>
-
-    @if (!empty($description))
-        <meta name="description" content="{{ $description }}">
-    @endif
-
-    <link rel="icon" type="image/png" href="{{ asset('images/logo/favicon.png') }}">
-
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @livewireStyles
+    <x-layouts.head :title="$title" :robots="$robots">
+        <link rel="canonical" href="{{ $canonical ?? request()->url() }}">
+        @if (!empty($description))
+            <meta name="description" content="{{ $description }}">
+        @endif
+    </x-layouts.head>
 </head>
 <body class="font-sans antialiased bg-surface-base">
 <div id="main-content" class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-surface-base">
@@ -42,15 +31,3 @@
 @livewireScripts
 </body>
 </html>
-
-<script>
-    const theme = localStorage.getItem('theme');
-
-    if (
-        theme === 'dark' ||
-        (theme === null &&
-            window.matchMedia('(prefers-color-scheme: dark)').matches)
-    ) {
-        document.documentElement.classList.add('dark');
-    }
-</script>

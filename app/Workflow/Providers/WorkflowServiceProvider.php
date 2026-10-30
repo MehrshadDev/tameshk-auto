@@ -41,9 +41,11 @@ use App\Workflow\Nodes\Triggers\GoogleSheetsRowAddedTriggerNode;
 use App\Workflow\Nodes\Triggers\GoogleSheetsRowUpdatedTriggerNode;
 use App\Workflow\Nodes\Triggers\ManualTriggerNode;
 use App\Workflow\Nodes\Triggers\TelegramTriggerNode;
+use App\Workflow\Nodes\Triggers\WebhookTriggerNode;
 use App\Workflow\Registry\NodeRegistry;
 use App\Workflow\Runner\WorkflowRunner;
 use Illuminate\Support\ServiceProvider;
+use App\Workflow\Nodes\Triggers\ScheduleTriggerNode;
 
 class WorkflowServiceProvider extends ServiceProvider
 {
@@ -52,6 +54,7 @@ class WorkflowServiceProvider extends ServiceProvider
         $this->app->singleton(NodeRegistry::class, function () {
             return new NodeRegistry([
                 ManualTriggerNode::class,
+                WebhookTriggerNode::class,
                 ChatTriggerNode::class,
                 TelegramTriggerNode::class,
                 GmailTriggerNode::class,
@@ -77,6 +80,10 @@ class WorkflowServiceProvider extends ServiceProvider
                 HttpToolNode::class,
                 CalculatorToolNode::class,
                 DateTimeToolNode::class,
+                ManualTriggerNode::class,
+                ScheduleTriggerNode::class,
+                WebhookTriggerNode::class,
+                ChatTriggerNode::class,
             ]);
         });
 

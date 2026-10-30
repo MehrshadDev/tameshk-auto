@@ -81,7 +81,12 @@ class AiAgentNode implements NodeContract
             throw NodeExecutionException::because('اعتبارنامه API برای مدل هوش مصنوعی یافت نشد.');
         }
 
-        $model = (string) ($modelNode->config['model'] ?? 'gemini-2.0-flash');
+        $model = trim((string) ($modelNode->config['model'] ?? ''));
+
+        if ($model === '') {
+            throw NodeExecutionException::because("در نود «{$modelNode->name}» هیچ مدل هوش مصنوعی‌ای انتخاب نشده است.");
+        }
+
         $temperature = (float) ($modelNode->config['temperature'] ?? 0.4);
 
         $memoryNode = $findSupplyNode(HandleType::Memory->value);

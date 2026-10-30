@@ -151,11 +151,11 @@ export function WorkflowEdge({
         );
     }
 
-    if (Math.abs(targetY - sourceY) < 1) {
+    if (Math.abs(targetY - sourceY) <= 6) {
         return (
             <BaseEdge
                 id={id}
-                path={`M ${sourceX} ${sourceY} L ${targetX} ${targetY}`}
+                path={`M ${sourceX} ${targetY} L ${targetX} ${targetY}`}
                 markerEnd={markerEnd}
                 style={style}
                 interactionWidth={interactionWidth}

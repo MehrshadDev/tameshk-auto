@@ -34,64 +34,35 @@ final class GeminiClient
         ?string $systemInstruction = null,
         array $tools = []
     ): array {
-        $endpoint = $this->buildEndpoint("/models/$model:generateContent");
-
-        $payload = [
-            'contents' => $contents,
-        ];
+        $payload = ['contents' => $contents];
 
         if (! empty($generationConfig)) {
             $payload['generationConfig'] = $generationConfig;
         }
 
         if (! empty($systemInstruction)) {
-            $payload['system_instruction'] = [
-                'parts' => [['text' => $systemInstruction]],
-            ];
+            $payload['system_instruction'] = ['parts' => [['text' => $systemInstruction]]];
         }
 
         if (! empty($tools)) {
             $payload['tools'] = $tools;
         }
 
-        $response = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(120)->post($endpoint, $payload);
-
-        $this->checkResponse($response);
-
-        return (array) $response->json();
+        return $this->call('POST', "/models/$model:generateContent", $payload, 120);
     }
 
     public function generateImages(string $prompt, array $options = []): array
     {
         $model = (string) ($options['model'] ?? 'imagen-3.0-generate-002');
-        $endpoint = $this->buildEndpoint("/models/$model:predict");
 
-        $sampleCount = max(1, min(4, (int) ($options['number_of_images'] ?? 1)));
-        $aspectRatio = (string) ($options['aspect_ratio'] ?? '1:1');
-        $mimeType = (string) ($options['output_format'] ?? 'image/jpeg');
-
-        $payload = [
-            'instances' => [
-                ['prompt' => $prompt],
-            ],
+        return $this->call('POST', "/models/$model:predict", [
+            'instances'  => [['prompt' => $prompt]],
             'parameters' => [
-                'sampleCount' => $sampleCount,
-                'aspectRatio' => $aspectRatio,
-                'outputOptions' => [
-                    'mimeType' => $mimeType,
-                ],
+                'sampleCount'   => max(1, min(4, (int) ($options['number_of_images'] ?? 1))),
+                'aspectRatio'   => (string) ($options['aspect_ratio'] ?? '1:1'),
+                'outputOptions' => ['mimeType' => (string) ($options['output_format'] ?? 'image/jpeg')],
             ],
-        ];
-
-        $response = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(120)->post($endpoint, $payload);
-
-        $this->checkResponse($response);
-
-        return (array) $response->json();
+        ], 120);
     }
 
     public function uploadMedia(string $content, string $mimeType, ?string $displayName = null): array
@@ -128,109 +99,48 @@ final class GeminiClient
 
     public function getFile(string $name): array
     {
-        $cleanName = str_starts_with($name, 'files/') ? $name : "files/$name";
-        $endpoint = $this->buildEndpoint("/$cleanName");
-
-        $response = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(30)->get($endpoint);
-
-        $this->checkResponse($response);
-
-        return (array) $response->json();
+        return $this->call('GET', '/' . $this->prefixed($name, 'files'));
     }
 
     public function deleteFile(string $name): bool
     {
-        $cleanName = str_starts_with($name, 'files/') ? $name : "files/$name";
-        $endpoint = $this->buildEndpoint("/$cleanName");
-
-        $response = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(30)->delete($endpoint);
-
-        $this->checkResponse($response);
+        $this->call('DELETE', '/' . $this->prefixed($name, 'files'));
 
         return true;
     }
 
     public function createCorpus(string $displayName): array
     {
-        $endpoint = $this->buildEndpoint('/corpora');
-
-        $response = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(30)->post($endpoint, [
-            'displayName' => $displayName,
-        ]);
-
-        $this->checkResponse($response);
-
-        return (array) $response->json();
+        return $this->call('POST', '/corpora', ['displayName' => $displayName]);
     }
 
     public function listCorpora(int $pageSize = 20): array
     {
-        $endpoint = $this->buildEndpoint('/corpora');
-
-        $response = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(30)->get($endpoint, [
-            'pageSize' => max(1, min(100, $pageSize)),
-        ]);
-
-        $this->checkResponse($response);
-
-        return (array) data_get($response->json(), 'corpora', []);
+        return (array) data_get(
+            $this->call('GET', '/corpora', ['pageSize' => max(1, min(100, $pageSize))]),
+            'corpora',
+            [],
+        );
     }
 
     public function deleteCorpus(string $name, bool $force = true): bool
     {
-        $cleanName = str_starts_with($name, 'corpora/') ? $name : "corpora/$name";
-        $endpoint = $this->buildEndpoint("/$cleanName");
-
-        $response = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(30)->delete($endpoint, [
-            'force' => $force,
-        ]);
-
-        $this->checkResponse($response);
+        $this->call('DELETE', '/' . $this->prefixed($name, 'corpora'), ['force' => $force]);
 
         return true;
     }
 
     public function uploadFileToCorpus(string $corpusName, string $title, string $content): array
     {
-        $cleanCorpus = str_starts_with($corpusName, 'corpora/') ? $corpusName : "corpora/$corpusName";
+        $corpus = $this->prefixed($corpusName, 'corpora');
+        $document = $this->call('POST', "/$corpus/documents", ['displayName' => $title]);
+        $docName = (string) data_get($document, 'name');
 
-        $docEndpoint = $this->buildEndpoint("/$cleanCorpus/documents");
-        $docRes = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(30)->post($docEndpoint, [
-            'displayName' => $title,
+        $chunk = $this->call('POST', "/$docName/chunks", [
+            'data' => ['stringValue' => $content],
         ]);
 
-        $this->checkResponse($docRes);
-
-        $docData = $docRes->json();
-        $docName = (string) data_get($docData, 'name');
-
-        $chunkEndpoint = $this->buildEndpoint("/$docName/chunks");
-        $chunkRes = Http::withHeaders([
-            'x-goog-api-key' => $this->apiKey,
-        ])->timeout(30)->post($chunkEndpoint, [
-            'data' => [
-                'stringValue' => $content,
-            ],
-        ]);
-
-        $this->checkResponse($chunkRes);
-
-        return [
-            'document' => $docData,
-            'chunk' => $chunkRes->json(),
-        ];
+        return ['document' => $document, 'chunk' => $chunk];
     }
 
     public function resolveInputPart(string $rawInput, string $defaultMime = 'image/jpeg'): array
@@ -317,5 +227,38 @@ final class GeminiClient
         if ($response->failed()) {
             throw NodeExecutionException::because(GeminiError::describe($response));
         }
+    }
+
+    public static function text(array $response): string
+    {
+        return (string) data_get($response, 'candidates.0.content.parts.0.text', '');
+    }
+
+    public function ask(string $model, array $parts, array $generationConfig = [], ?string $systemInstruction = null): array
+    {
+        $raw = $this->generateContent(
+            $model,
+            [['role' => 'user', 'parts' => $parts]],
+            $generationConfig,
+            $systemInstruction,
+        );
+
+        return ['text' => self::text($raw), 'raw' => $raw];
+    }
+
+    private function call(string $method, string $path, array $data = [], int $timeout = 30): array
+    {
+        $response = Http::withHeaders(['x-goog-api-key' => $this->apiKey])
+            ->timeout($timeout)
+            ->{strtolower($method)}($this->buildEndpoint($path), $data);
+
+        $this->checkResponse($response);
+
+        return (array) $response->json();
+    }
+
+    private function prefixed(string $name, string $prefix): string
+    {
+        return str_starts_with($name, "$prefix/") ? $name : "$prefix/$name";
     }
 }

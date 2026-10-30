@@ -6,6 +6,7 @@ use App\Models\Credential;
 use App\Workflow\Exceptions\NodeExecutionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\PendingRequest;
 use Throwable;
 
 final class LlmChatClient
@@ -35,6 +36,40 @@ final class LlmChatClient
         };
     }
 
+    private static function send(
+        PendingRequest $request,
+        string $endpoint,
+        array $payload,
+        string $connectionError,
+        callable $describeFailure,
+    ): array {
+        try {
+            $response = $request->timeout(90)->post($endpoint, $payload);
+        } catch (Throwable $e) {
+            throw NodeExecutionException::because("$connectionError: {$e->getMessage()}");
+        }
+
+        if ($response->failed()) {
+            throw NodeExecutionException::because($describeFailure($response));
+        }
+
+        return (array) $response->json();
+    }
+
+    private static function toolContent(mixed $content): string
+    {
+        return is_string($content) ? $content : json_encode($content, JSON_UNESCAPED_UNICODE);
+    }
+
+    private static function result(string $text, array $toolCalls, array $rawAssistantMessage): array
+    {
+        return [
+            'text'                  => trim($text),
+            'tool_calls'            => $toolCalls,
+            'raw_assistant_message' => $rawAssistantMessage,
+        ];
+    }
+
     private static function chatGemini(
         Credential $credential,
         string     $model,
@@ -42,93 +77,68 @@ final class LlmChatClient
         ?string    $systemPrompt,
         float      $temperature,
         array      $tools,
-    ): array
-    {
-        $apiKey = (string)$credential->get('api_key');
-        $baseUrl = rtrim((string)config('services.gemini.base_url', 'https://generativelanguage.googleapis.com'), '/');
-        $endpoint = str_ends_with($baseUrl, '/v1beta')
-            ? "$baseUrl/models/$model:generateContent"
-            : "$baseUrl/v1beta/models/$model:generateContent";
+    ): array {
+        $baseUrl = rtrim((string) config('services.gemini.base_url', 'https://generativelanguage.googleapis.com'), '/');
+        $prefix = str_ends_with($baseUrl, '/v1beta') ? $baseUrl : "$baseUrl/v1beta";
 
-        $contents = [];
-        foreach ($messages as $msg) {
-            if (isset($msg['gemini_raw'])) {
-                $contents[] = $msg['gemini_raw'];
-                continue;
-            }
-
-            if ($msg['role'] === 'tool') {
-                $contents[] = [
-                    'role' => 'user',
+        $payload = [
+            'contents' => array_map(fn (array $msg) => match (true) {
+                isset($msg['gemini_raw']) => $msg['gemini_raw'],
+                $msg['role'] === 'tool'   => [
+                    'role'  => 'user',
                     'parts' => [[
                         'functionResponse' => [
-                            'name' => $msg['name'],
+                            'name'     => $msg['name'],
                             'response' => is_array($msg['content']) ? $msg['content'] : ['result' => $msg['content']],
                         ],
                     ]],
-                ];
-                continue;
-            }
-
-            $contents[] = [
-                'role' => $msg['role'] === 'assistant' ? 'model' : 'user',
-                'parts' => [['text' => (string)($msg['text'] ?? '')]],
-            ];
-        }
-
-        $payload = [
-            'contents' => $contents,
+                ],
+                default => [
+                    'role'  => $msg['role'] === 'assistant' ? 'model' : 'user',
+                    'parts' => [['text' => (string) ($msg['text'] ?? '')]],
+                ],
+            }, $messages),
             'generationConfig' => ['temperature' => $temperature],
         ];
 
-        if ($systemPrompt !== null && $systemPrompt !== '') {
+        if (filled($systemPrompt)) {
             $payload['system_instruction'] = ['parts' => [['text' => $systemPrompt]]];
         }
 
-        if (!empty($tools)) {
+        if (! empty($tools)) {
             $payload['tools'] = [['functionDeclarations' => $tools]];
         }
 
-        try {
-            $response = Http::withHeaders(['x-goog-api-key' => $apiKey])
-                ->timeout(90)
-                ->post($endpoint, $payload);
-        } catch (Throwable $e) {
-            throw NodeExecutionException::because("سرویس Gemini در دسترس نیست: {$e->getMessage()}");
-        }
+        $json = self::send(
+            Http::withHeaders(['x-goog-api-key' => (string) $credential->get('api_key')]),
+            "$prefix/models/$model:generateContent",
+            $payload,
+            'سرویس Gemini در دسترس نیست',
+            fn (Response $response) => GeminiError::describe($response),
+        );
 
-        if ($response->failed()) {
-            throw NodeExecutionException::because(GeminiError::describe($response));
-        }
-
-        $candidateContent = (array)data_get($response->json(), 'candidates.0.content', []);
-        $parts = (array)data_get($candidateContent, 'parts', []);
-
+        $content = (array) data_get($json, 'candidates.0.content', []);
         $toolCalls = [];
-        $textParts = [];
+        $texts = [];
 
-        foreach ($parts as $part) {
+        foreach ((array) data_get($content, 'parts', []) as $part) {
             if (isset($part['functionCall'])) {
-                $fc = $part['functionCall'];
                 $toolCalls[] = [
-                    'id' => 'call_' . uniqid(),
-                    'name' => (string)($fc['name'] ?? ''),
-                    'args' => (array)($fc['args'] ?? []),
+                    'id'   => 'call_' . uniqid(),
+                    'name' => (string) ($part['functionCall']['name'] ?? ''),
+                    'args' => (array) ($part['functionCall']['args'] ?? []),
                 ];
             }
+
             if (isset($part['text'])) {
-                $textParts[] = $part['text'];
+                $texts[] = $part['text'];
             }
         }
 
-        return [
-            'text' => trim(implode("\n", $textParts)),
-            'tool_calls' => $toolCalls,
-            'raw_assistant_message' => [
-                'role' => 'assistant',
-                'gemini_raw' => $candidateContent,
-            ],
-        ];
+        return self::result(implode("\n", $texts), $toolCalls, [
+            'role'       => 'assistant',
+            'gemini_raw' => $content,
+        ]);
     }
 
     private static function chatOpenAiCompatible(
@@ -139,95 +149,68 @@ final class LlmChatClient
         float      $temperature,
         array      $tools,
         string     $defaultBaseUrl,
-    ): array
-    {
-        $apiKey = trim((string)$credential->get('api_key'));
-        $customBase = trim((string)$credential->get('base_url', ''));
+    ): array {
+        $customBase = trim((string) $credential->get('base_url', ''));
         $baseUrl = rtrim($customBase !== '' ? $customBase : $defaultBaseUrl, '/');
-        $endpoint = "$baseUrl/chat/completions";
 
-        $formattedMessages = [];
-
-        if ($systemPrompt !== null && $systemPrompt !== '') {
-            $formattedMessages[] = ['role' => 'system', 'content' => $systemPrompt];
-        }
-
-        foreach ($messages as $msg) {
-            if (isset($msg['openai_raw'])) {
-                $formattedMessages[] = $msg['openai_raw'];
-                continue;
-            }
-
-            if ($msg['role'] === 'tool') {
-                $formattedMessages[] = [
-                    'role' => 'tool',
-                    'tool_call_id' => $msg['tool_call_id'],
-                    'content' => is_string($msg['content'])
-                        ? $msg['content']
-                        : json_encode($msg['content'], JSON_UNESCAPED_UNICODE),
-                ];
-                continue;
-            }
-
-            $formattedMessages[] = [
-                'role' => $msg['role'] === 'model' ? 'assistant' : $msg['role'],
-                'content' => (string)($msg['text'] ?? ''),
-            ];
-        }
+        $history = array_map(fn (array $msg) => match (true) {
+            isset($msg['openai_raw'])   => $msg['openai_raw'],
+            $msg['role'] === 'tool'     => [
+                'role'         => 'tool',
+                'tool_call_id' => $msg['tool_call_id'],
+                'content'      => self::toolContent($msg['content']),
+            ],
+            default => [
+                'role'    => $msg['role'] === 'model' ? 'assistant' : $msg['role'],
+                'content' => (string) ($msg['text'] ?? ''),
+            ],
+        }, $messages);
 
         $payload = [
-            'model' => $model,
-            'messages' => $formattedMessages,
+            'model'       => $model,
+            'messages'    => filled($systemPrompt)
+                ? [['role' => 'system', 'content' => $systemPrompt], ...$history]
+                : $history,
             'temperature' => $temperature,
         ];
 
-        if (!empty($tools)) {
-            $payload['tools'] = array_map(fn(array $tool) => [
-                'type' => 'function',
+        if (! empty($tools)) {
+            $payload['tools'] = array_map(fn (array $tool) => [
+                'type'     => 'function',
                 'function' => [
-                    'name' => $tool['name'],
+                    'name'        => $tool['name'],
                     'description' => $tool['description'],
-                    'parameters' => self::normalizeJsonSchema($tool['parameters']),
+                    'parameters'  => self::normalizeJsonSchema($tool['parameters']),
                 ],
             ], $tools);
         }
 
-        try {
-            $response = Http::withToken($apiKey)
-                ->timeout(90)
-                ->post($endpoint, $payload);
-        } catch (Throwable $e) {
-            throw NodeExecutionException::because("خطا در ارتباط با سرویس هوش مصنوعی: {$e->getMessage()}");
-        }
+        $json = self::send(
+            Http::withToken(trim((string) $credential->get('api_key'))),
+            "$baseUrl/chat/completions",
+            $payload,
+            'خطا در ارتباط با سرویس هوش مصنوعی',
+            fn (Response $response) => self::describeHttpError(ucfirst($credential->type), $response),
+        );
 
-        if ($response->failed()) {
-            throw NodeExecutionException::because(self::describeHttpError(ucfirst($credential->type), $response));
-        }
-
-        $message = (array)data_get($response->json(), 'choices.0.message', []);
-        $text = trim((string)($message['content'] ?? ''));
-        $rawToolCalls = (array)($message['tool_calls'] ?? []);
-
+        $message = (array) data_get($json, 'choices.0.message', []);
         $toolCalls = [];
-        foreach ($rawToolCalls as $tc) {
-            $argsRaw = data_get($tc, 'function.arguments', '{}');
-            $decodedArgs = is_string($argsRaw) ? json_decode($argsRaw, true) : $argsRaw;
+
+        foreach ((array) ($message['tool_calls'] ?? []) as $call) {
+            $arguments = data_get($call, 'function.arguments', '{}');
+            $decoded = is_string($arguments) ? json_decode($arguments, true) : $arguments;
 
             $toolCalls[] = [
-                'id' => (string)($tc['id'] ?? ('call_' . uniqid())),
-                'name' => (string)data_get($tc, 'function.name', ''),
-                'args' => is_array($decodedArgs) ? $decodedArgs : [],
+                'id'   => (string) ($call['id'] ?? ('call_' . uniqid())),
+                'name' => (string) data_get($call, 'function.name', ''),
+                'args' => is_array($decoded) ? $decoded : [],
             ];
         }
 
-        return [
-            'text' => $text,
-            'tool_calls' => $toolCalls,
-            'raw_assistant_message' => [
-                'role' => 'assistant',
-                'openai_raw' => $message,
-            ],
-        ];
+        return self::result((string) ($message['content'] ?? ''), $toolCalls, [
+            'role'       => 'assistant',
+            'openai_raw' => $message,
+        ]);
     }
 
     private static function chatAnthropic(
@@ -237,99 +220,71 @@ final class LlmChatClient
         ?string    $systemPrompt,
         float      $temperature,
         array      $tools,
-    ): array
-    {
-        $apiKey = trim((string)$credential->get('api_key'));
-        $endpoint = 'https://api.anthropic.com/v1/messages';
-
-        $formattedMessages = [];
-
-        foreach ($messages as $msg) {
-            if (isset($msg['anthropic_raw'])) {
-                $formattedMessages[] = $msg['anthropic_raw'];
-                continue;
-            }
-
-            if ($msg['role'] === 'tool') {
-                $formattedMessages[] = [
-                    'role' => 'user',
-                    'content' => [[
-                        'type' => 'tool_result',
-                        'tool_use_id' => $msg['tool_call_id'],
-                        'content' => is_string($msg['content'])
-                            ? $msg['content']
-                            : json_encode($msg['content'], JSON_UNESCAPED_UNICODE),
-                    ]],
-                ];
-                continue;
-            }
-
-            $formattedMessages[] = [
-                'role' => in_array($msg['role'], ['assistant', 'model'], true) ? 'assistant' : 'user',
-                'content' => (string)($msg['text'] ?? ''),
-            ];
-        }
-
+    ): array {
         $payload = [
-            'model' => $model,
-            'max_tokens' => 4096,
-            'messages' => $formattedMessages,
+            'model'       => $model,
+            'max_tokens'  => 4096,
             'temperature' => min(1.0, max(0.0, $temperature)),
+            'messages'    => array_map(fn (array $msg) => match (true) {
+                isset($msg['anthropic_raw']) => $msg['anthropic_raw'],
+                $msg['role'] === 'tool'      => [
+                    'role'    => 'user',
+                    'content' => [[
+                        'type'        => 'tool_result',
+                        'tool_use_id' => $msg['tool_call_id'],
+                        'content'     => self::toolContent($msg['content']),
+                    ]],
+                ],
+                default => [
+                    'role'    => in_array($msg['role'], ['assistant', 'model'], true) ? 'assistant' : 'user',
+                    'content' => (string) ($msg['text'] ?? ''),
+                ],
+            }, $messages),
         ];
 
-        if ($systemPrompt !== null && $systemPrompt !== '') {
+        if (filled($systemPrompt)) {
             $payload['system'] = $systemPrompt;
         }
 
-        if (!empty($tools)) {
-            $payload['tools'] = array_map(fn(array $tool) => [
-                'name' => $tool['name'],
-                'description' => $tool['description'],
+        if (! empty($tools)) {
+            $payload['tools'] = array_map(fn (array $tool) => [
+                'name'         => $tool['name'],
+                'description'  => $tool['description'],
                 'input_schema' => self::normalizeJsonSchema($tool['parameters']),
             ], $tools);
         }
 
-        try {
-            $response = Http::withHeaders([
-                'x-api-key' => $apiKey,
+        $json = self::send(
+            Http::withHeaders([
+                'x-api-key'         => trim((string) $credential->get('api_key')),
                 'anthropic-version' => '2023-06-01',
-            ])->timeout(90)->post($endpoint, $payload);
-        } catch (Throwable $e) {
-            throw NodeExecutionException::because("خطا در ارتباط با سرویس Anthropic: {$e->getMessage()}");
-        }
+            ]),
+            'https://api.anthropic.com/v1/messages',
+            $payload,
+            'خطا در ارتباط با سرویس Anthropic',
+            fn (Response $response) => self::describeHttpError('Anthropic Claude', $response),
+        );
 
-        if ($response->failed()) {
-            throw NodeExecutionException::because(self::describeHttpError('Anthropic Claude', $response));
-        }
-
-        $contentBlocks = (array)data_get($response->json(), 'content', []);
-        $textParts = [];
+        $blocks = (array) data_get($json, 'content', []);
         $toolCalls = [];
+        $texts = [];
 
-        foreach ($contentBlocks as $block) {
-            $type = $block['type'] ?? '';
-            if ($type === 'text') {
-                $textParts[] = (string)($block['text'] ?? '');
-            } elseif ($type === 'tool_use') {
-                $toolCalls[] = [
-                    'id' => (string)($block['id'] ?? ('toolu_' . uniqid())),
-                    'name' => (string)($block['name'] ?? ''),
-                    'args' => (array)($block['input'] ?? []),
-                ];
-            }
+        foreach ($blocks as $block) {
+            match ($block['type'] ?? '') {
+                'text'     => $texts[] = (string) ($block['text'] ?? ''),
+                'tool_use' => $toolCalls[] = [
+                    'id'   => (string) ($block['id'] ?? ('toolu_' . uniqid())),
+                    'name' => (string) ($block['name'] ?? ''),
+                    'args' => (array) ($block['input'] ?? []),
+                ],
+                default    => null,
+            };
         }
 
-        return [
-            'text' => trim(implode("\n", $textParts)),
-            'tool_calls' => $toolCalls,
-            'raw_assistant_message' => [
-                'role' => 'assistant',
-                'anthropic_raw' => [
-                    'role' => 'assistant',
-                    'content' => $contentBlocks,
-                ],
-            ],
-        ];
+        return self::result(implode("\n", $texts), $toolCalls, [
+            'role'          => 'assistant',
+            'anthropic_raw' => ['role' => 'assistant', 'content' => $blocks],
+        ]);
     }
 
     private static function normalizeJsonSchema(array $schema): array
