@@ -36,7 +36,15 @@ export function ModelSelect({ credentialId, value, onChange }: ModelSelectProps)
 
         request<{ data: ModelItem[] }>(`/app/api/credentials/${credentialId}/models`)
             .then((res) => {
-                if (!cancelled) setModels(res.data ?? []);
+                if (cancelled) return;
+
+                const list = res.data ?? [];
+                setModels(list);
+
+                const currentVal = value === null || value === undefined ? '' : String(value).trim();
+                if (currentVal !== '' && list.length > 0 && !list.some((item) => item.value === currentVal)) {
+                    onChange('');
+                }
             })
             .catch(() => {
                 if (!cancelled) setError('دریافت لیست مدل‌ها با خطا مواجه شد.');

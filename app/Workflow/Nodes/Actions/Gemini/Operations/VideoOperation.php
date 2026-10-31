@@ -37,7 +37,7 @@ final class VideoOperation extends GeminiOperation
     private function generate(NodeContext $context, GeminiClient $client): NodeResult
     {
         $prompt = $this->ensure($this->str($context, 'prompt'), 'پرامپت برای تولید ویدیو الزامی است.');
-        $model = $this->str($context, 'model_multimodal', 'gemini-2.5-flash');
+        $model = $this->model($context, 'model_multimodal');
 
         $context->log("تولید سناریو و ساختار ویدیویی با Gemini: $prompt");
 

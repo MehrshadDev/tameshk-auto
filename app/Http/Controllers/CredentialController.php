@@ -132,10 +132,9 @@ class CredentialController extends Controller
         ]);
     }
 
-
     private function geminiModels(string $apiKey): array
     {
-        $cacheKey = 'gemini_text_models_v3_' . md5($apiKey);
+        $cacheKey = 'gemini_text_models_v4_' . md5($apiKey);
 
         return Cache::remember($cacheKey, now()->addHours(6), function () use ($apiKey) {
             try {
@@ -257,6 +256,10 @@ class CredentialController extends Controller
         $id = str_replace('models/', '', $model['name'] ?? '');
 
         if (! str_starts_with($id, 'gemini-')) {
+            return false;
+        }
+
+        if (preg_match('/^gemini-(1\.|2\.0)/i', $id)) {
             return false;
         }
 

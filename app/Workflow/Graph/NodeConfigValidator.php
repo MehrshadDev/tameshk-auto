@@ -2,11 +2,11 @@
 
 namespace App\Workflow\Graph;
 
-use App\Workflow\DTOs\NodeDefinition;
-use Illuminate\Support\Collection;
 use App\Models\Node;
+use App\Workflow\DTOs\NodeDefinition;
 use App\Workflow\Nodes\Triggers\ScheduleTriggerNode;
 use App\Workflow\Nodes\Triggers\WebhookTriggerNode;
+use Illuminate\Support\Collection;
 
 final class NodeConfigValidator
 {
@@ -88,7 +88,9 @@ final class NodeConfigValidator
                 || (is_string($value) && trim($value) === '');
 
             if ($isEmpty) {
-                $errors[$key] ??= 'این فیلد الزامی است.';
+                $errors[$key] ??= ($field['type'] ?? null) === 'model_select'
+                    ? 'مدل هوش مصنوعی انتخاب نشده است. لطفاً یک مدل را از لیست انتخاب کنید.'
+                    : 'این فیلد الزامی است.';
             }
         }
 
@@ -269,9 +271,15 @@ final class NodeConfigValidator
 
     private function checkModelSelect(mixed $value): ?string
     {
-        return is_string($value) && $value !== '' && mb_strlen($value) <= 200
-            ? null
-            : 'مدل انتخاب‌شده نامعتبر است.';
+        if (! is_string($value) || trim($value) === '' || mb_strlen($value) > 200) {
+            return 'مدل هوش مصنوعی انتخاب نشده است. لطفاً یک مدل را از لیست انتخاب کنید.';
+        }
+
+        if (preg_match('/^gemini-(1\.|2\.0)/i', trim($value))) {
+            return 'این مدل منسوخ شده است. لطفاً یک مدل جدید از لیست انتخاب کنید.';
+        }
+
+        return null;
     }
 
     private function checkConditions(mixed $value): ?string
