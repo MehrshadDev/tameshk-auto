@@ -21,7 +21,7 @@ use Throwable;
 
 class AiAgentNode implements NodeContract
 {
-    private const MAX_TOOL_STEPS = 6;
+    private const MAX_TOOL_STEPS = 8;
 
     public static function definition(): NodeDefinition
     {
@@ -101,8 +101,13 @@ class AiAgentNode implements NodeContract
             $guard->assertComplete($memoryNode, $context->run);
         }
 
+        $templateContext = [
+            'input'   => $context->input,
+            'trigger' => $context->run->trigger_data ?? [],
+        ];
+
         $memoryConfig = $hasMemory
-            ? TemplateEngine::render($memoryNode->config ?? [], ['input' => $context->input])
+            ? TemplateEngine::render($memoryNode->config ?? [], $templateContext)
             : [];
 
         $memorySize = (int) ($memoryConfig['memory_size'] ?? 5);
@@ -156,7 +161,9 @@ class AiAgentNode implements NodeContract
             $executor = $registry->make($tNode->type);
 
             if ($executor instanceof ToolContract) {
-                $rawName = $executor->toolName($tNode->config ?? []);
+                $renderedToolConfig = TemplateEngine::render($tNode->config ?? [], $templateContext);
+
+                $rawName = $executor->toolName($renderedToolConfig);
                 $normalizedName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $rawName);
                 $normalizedName = trim((string) $normalizedName, '_');
 
@@ -164,15 +171,20 @@ class AiAgentNode implements NodeContract
                     $normalizedName = 'tool_' . $tNode->id;
                 }
 
+                if (isset($toolsMap[$normalizedName])) {
+                    $normalizedName .= '_' . $tNode->id;
+                }
+
                 $toolsMap[$normalizedName] = [
                     'node'     => $tNode,
+                    'config'   => $renderedToolConfig,
                     'instance' => $executor,
                 ];
 
                 $functionDeclarations[] = [
                     'name'        => $normalizedName,
-                    'description' => $executor->toolDescription($tNode->config ?? []),
-                    'parameters'  => $executor->toolParameters($tNode->config ?? []),
+                    'description' => $executor->toolDescription($renderedToolConfig),
+                    'parameters'  => $executor->toolParameters($renderedToolConfig),
                 ];
             }
         }
@@ -233,6 +245,7 @@ class AiAgentNode implements NodeContract
 
                     $toolInfo = $toolsMap[$fnName];
                     $targetToolNode = $toolInfo['node'];
+                    $toolConfig = $toolInfo['config'];
                     $toolInstance = $toolInfo['instance'];
 
                     $context->log("اجرای ابزار [$fnName]");
@@ -241,7 +254,7 @@ class AiAgentNode implements NodeContract
 
                     $toolContext = new NodeContext(
                         node: $targetToolNode,
-                        config: $targetToolNode->config ?? [],
+                        config: $toolConfig,
                         input: $fnArgs,
                         run: $context->run,
                         credentials: app(CredentialResolver::class),
