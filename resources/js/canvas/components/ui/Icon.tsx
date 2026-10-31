@@ -3,7 +3,7 @@ type IconProps = {
     className?: string;
 };
 
-const MONO_DARK_BRANDS = new Set(['chatgpt']);
+const MONO_DARK_BRANDS = new Set(['chatgpt', 'wikipedia']);
 
 export function Icon({ name, className = 'size-5' }: IconProps) {
     if (name.startsWith('brand:')) {
