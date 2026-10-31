@@ -8,6 +8,7 @@ use App\Workflow\DTOs\NodeDefinition;
 use App\Workflow\DTOs\NodeResult;
 use App\Workflow\Enums\HandleType;
 use App\Workflow\Enums\NodeCategory;
+use App\Workflow\Support\ConditionEvaluator;
 use Throwable;
 
 class ConditionNode implements NodeContract
@@ -51,7 +52,7 @@ class ConditionNode implements NodeContract
     public function execute(NodeContext $context): NodeResult
     {
         try {
-            $combinator = $context->config['combinator'] ?? 'and';
+            $combinator = (string) ($context->config['combinator'] ?? 'and');
             $conditions = $context->config['conditions'] ?? [];
 
             if (empty($conditions) && isset($context->config['field'])) {
@@ -68,68 +69,10 @@ class ConditionNode implements NodeContract
                 $conditions = [];
             }
 
-            $results = [];
-
-            foreach ($conditions as $rule) {
-                if (! is_array($rule)) {
-                    continue;
-                }
-
-                $rawField = trim((string) ($rule['field'] ?? ''));
-                $operator = (string) ($rule['operator'] ?? 'eq');
-                $expected = $rule['value'] ?? null;
-
-                if ($rawField === '') {
-                    $actual = null;
-                } else {
-                    $cleanPath = preg_replace('/^\{\{\s*(?:input\.)?|\s*\}\}$/', '', $rawField);
-                    $cleanPath = preg_replace('/^input\./', '', $cleanPath);
-
-                    $actual = data_get($context->input, $cleanPath);
-
-                    if ($actual === null && data_get($context->input, $rawField) !== null) {
-                        $actual = data_get($context->input, $rawField);
-                    }
-
-                    if ($actual === null && ! str_contains($rawField, '{{')) {
-                        $actual = $rawField;
-                    }
-                }
-
-                if (is_numeric($actual) && is_numeric($expected)) {
-                    $actual = (float) $actual;
-                    $expected = (float) $expected;
-                }
-
-                $actualString = is_array($actual) || is_object($actual) ? json_encode($actual) : (string) ($actual ?? '');
-                $expectedString = (string) ($expected ?? '');
-
-                $passed = match ($operator) {
-                    'eq'       => $actual == $expected,
-                    'neq'      => $actual != $expected,
-                    'gt'       => $actual > $expected,
-                    'gte'      => $actual >= $expected,
-                    'lt'       => $actual < $expected,
-                    'lte'      => $actual <= $expected,
-                    'contains' => str_contains($actualString, $expectedString),
-                    'empty'    => empty($actual),
-                    default    => false,
-                };
-
-                $results[] = $passed;
-            }
-
-            if (empty($results)) {
-                $finalPassed = true;
-            } elseif ($combinator === 'or') {
-                $finalPassed = in_array(true, $results, true);
-            } else {
-                $finalPassed = ! in_array(false, $results, true);
-            }
-
+            $finalPassed = ConditionEvaluator::evaluateRules($conditions, $combinator, $context->input);
             $handle = $finalPassed ? HandleType::True->value : HandleType::False->value;
 
-            $context->log("ارزیابی شروط شرط ($combinator) → " . ($finalPassed ? 'TRUE' : 'FALSE'));
+            $context->log("ارزیابی شروط ($combinator) → " . ($finalPassed ? 'TRUE' : 'FALSE'));
 
             return NodeResult::of(
                 output: [

@@ -23,6 +23,7 @@ use App\Workflow\Nodes\Actions\TelegramNode;
 use App\Workflow\Nodes\Ai\AiAgentNode;
 use App\Workflow\Nodes\Ai\AnthropicChatModelNode;
 use App\Workflow\Nodes\Ai\CalculatorToolNode;
+use App\Workflow\Nodes\Ai\DataStoreToolNode;
 use App\Workflow\Nodes\Ai\DateTimeToolNode;
 use App\Workflow\Nodes\Ai\DeepSeekChatModelNode;
 use App\Workflow\Nodes\Ai\GeminiChatModelNode;
@@ -38,7 +39,15 @@ use App\Workflow\Nodes\Ai\WebScraperToolNode;
 use App\Workflow\Nodes\Ai\WikipediaToolNode;
 use App\Workflow\Nodes\Logic\ConditionNode;
 use App\Workflow\Nodes\Logic\DelayNode;
+use App\Workflow\Nodes\Logic\StopAndErrorNode;
+use App\Workflow\Nodes\Logic\SwitchNode;
+use App\Workflow\Nodes\Transform\CryptoNode;
+use App\Workflow\Nodes\Transform\DataStoreNode;
+use App\Workflow\Nodes\Transform\DateTimeNode;
 use App\Workflow\Nodes\Transform\EditFieldsNode;
+use App\Workflow\Nodes\Transform\ItemListsNode;
+use App\Workflow\Nodes\Transform\JsonTransformNode;
+use App\Workflow\Nodes\Transform\TextTransformNode;
 use App\Workflow\Nodes\Triggers\ChatTriggerNode;
 use App\Workflow\Nodes\Triggers\GmailTriggerNode;
 use App\Workflow\Nodes\Triggers\GoogleSheetsRowAddedOrUpdatedTriggerNode;
@@ -68,8 +77,16 @@ class WorkflowServiceProvider extends ServiceProvider
                 GoogleSheetsRowUpdatedTriggerNode::class,
                 GoogleSheetsRowAddedOrUpdatedTriggerNode::class,
                 EditFieldsNode::class,
+                ItemListsNode::class,
+                TextTransformNode::class,
+                JsonTransformNode::class,
+                DateTimeNode::class,
+                CryptoNode::class,
+                DataStoreNode::class,
                 ConditionNode::class,
+                SwitchNode::class,
                 DelayNode::class,
+                StopAndErrorNode::class,
                 HttpRequestNode::class,
                 GeminiNode::class,
                 TelegramNode::class,
@@ -86,6 +103,7 @@ class WorkflowServiceProvider extends ServiceProvider
                 GoogleSheetsToolNode::class,
                 GmailToolNode::class,
                 TelegramToolNode::class,
+                DataStoreToolNode::class,
                 HttpToolNode::class,
                 WebScraperToolNode::class,
                 WikipediaToolNode::class,

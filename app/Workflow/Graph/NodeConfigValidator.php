@@ -6,6 +6,7 @@ use App\Models\Node;
 use App\Workflow\DTOs\NodeDefinition;
 use App\Workflow\Nodes\Triggers\ScheduleTriggerNode;
 use App\Workflow\Nodes\Triggers\WebhookTriggerNode;
+use App\Workflow\Support\ConditionEvaluator;
 use Illuminate\Support\Collection;
 
 final class NodeConfigValidator
@@ -300,13 +301,11 @@ final class NodeConfigValidator
                 return 'یکی از شروط نامعتبر است.';
             }
 
-            if (! in_array($operator, [
-                'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'contains', 'empty',
-            ], true)) {
+            if (! in_array($operator, ConditionEvaluator::OPERATORS, true)) {
                 return 'عملگر یکی از شروط نامعتبر است.';
             }
 
-            if ($operator !== 'empty' && isset($rule['value']) && ! is_scalar($rule['value'])) {
+            if (! in_array($operator, ['empty', 'not_empty'], true) && isset($rule['value']) && ! is_scalar($rule['value'])) {
                 return 'مقدار یکی از شروط نامعتبر است.';
             }
         }

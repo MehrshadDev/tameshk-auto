@@ -18,12 +18,17 @@ type ConditionsEditorProps = {
 const operators = [
     { value: 'eq', label: 'برابر است با (==)' },
     { value: 'neq', label: 'برابر نیست با (!=)' },
+    { value: 'contains', label: 'شامل متن است (Contains)' },
+    { value: 'not_contains', label: 'شامل متن نیست (Not Contains)' },
+    { value: 'starts_with', label: 'شروع می‌شود با (Starts With)' },
+    { value: 'ends_with', label: 'پایان می‌یابد با (Ends With)' },
     { value: 'gt', label: 'بزرگ‌تر از (>)' },
     { value: 'gte', label: 'بزرگ‌تر یا مساوی (>=)' },
     { value: 'lt', label: 'کوچک‌تر از (<)' },
     { value: 'lte', label: 'کوچک‌تر یا مساوی (<=)' },
-    { value: 'contains', label: 'شامل متن است' },
-    { value: 'empty', label: 'خالی است' },
+    { value: 'empty', label: 'خالی است (Is Empty)' },
+    { value: 'not_empty', label: 'خالی نیست (Is Not Empty)' },
+    { value: 'regex', label: 'تطابق با الگوی Regex' },
 ];
 
 const toRules = (val: unknown): ConditionRule[] => {
@@ -108,7 +113,7 @@ export function ConditionsEditor({ value, onChange, incomingData }: ConditionsEd
                             />
                         </div>
 
-                        {rule.operator !== 'empty' && (
+                        {rule.operator !== 'empty' && rule.operator !== 'not_empty' && (
                             <div className="space-y-1">
                                 <label className="text-[11px] font-semibold text-content-muted">مقدار مقایسه</label>
                                 <ConfigFieldInput

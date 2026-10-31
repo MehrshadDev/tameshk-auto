@@ -42,6 +42,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<FlowNode>) {
     const isAiAgent = data.nodeType === 'ai.agent';
     const isTrigger = definition?.category === 'trigger';
     const isCondition = data.nodeType === 'logic.condition';
+    const isSwitch = data.nodeType === 'logic.switch';
     const isDisabled = Boolean(data.config?.disabled) && !isTrigger;
     const isNodeExecuting = runningNodeId === id;
 
@@ -76,6 +77,11 @@ export function WorkflowNode({ id, data, selected }: NodeProps<FlowNode>) {
     const conditionOutcome =
         isCondition && lastRunItem?.status === 'success'
             ? ((lastRunItem.output_data as { handle?: string } | null)?.handle ?? null)
+            : null;
+
+    const switchOutcome =
+        isSwitch && lastRunItem?.status === 'success'
+            ? ((lastRunItem.output_data as { _matched_case?: string } | null)?._matched_case ?? null)
             : null;
 
     useLayoutEffect(() => {
@@ -193,7 +199,9 @@ export function WorkflowNode({ id, data, selected }: NodeProps<FlowNode>) {
                 />
             ) : (
                 <div
-                    className={`pointer-events-auto relative flex size-18 items-center justify-center rounded-2xl border bg-surface-card shadow-sm transition-all duration-200 ${
+                    className={`pointer-events-auto relative flex w-18 items-center justify-center rounded-2xl border bg-surface-card shadow-sm transition-all duration-200 ${
+                        outputs.length > 2 ? 'h-28' : 'h-18'
+                    } ${
                         selected
                             ? 'border-primary shadow-lg ring-4 ring-primary/20'
                             : isNodeExecuting
@@ -238,7 +246,9 @@ export function WorkflowNode({ id, data, selected }: NodeProps<FlowNode>) {
                                 ? 'border-emerald-500/30 text-emerald-500'
                                 : handleId === HandleId.False
                                     ? 'border-rose-500/30 text-rose-400'
-                                    : 'border-line-border text-content-muted';
+                                    : handleId === HandleId.Default
+                                        ? 'border-amber-500/30 text-amber-500'
+                                        : 'border-line-border text-content-muted';
 
                         return (
                             <div
@@ -296,7 +306,14 @@ export function WorkflowNode({ id, data, selected }: NodeProps<FlowNode>) {
                         </span>
                     )}
 
+                    {switchOutcome && (
+                        <span className="mt-0.5 inline-block rounded bg-orange-500/10 px-1.5 py-[0.2rem] text-[9px] font-bold text-orange-500">
+                            مسیر: {handleLabels[switchOutcome] ?? switchOutcome}
+                        </span>
+                    )}
+
                     {!conditionOutcome &&
+                        !switchOutcome &&
                         lastRunItem?.duration_ms !== null &&
                         lastRunItem?.duration_ms !== undefined && (
                             <p className="mt-0.5 text-[10px] text-content-muted" dir="ltr">
@@ -305,6 +322,7 @@ export function WorkflowNode({ id, data, selected }: NodeProps<FlowNode>) {
                         )}
 
                     {!conditionOutcome &&
+                        !switchOutcome &&
                         (lastRunItem?.duration_ms === null || lastRunItem?.duration_ms === undefined) && (
                             <>
                                 {!definition && (

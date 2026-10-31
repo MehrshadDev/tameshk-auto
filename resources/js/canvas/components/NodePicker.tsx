@@ -1,12 +1,12 @@
 import { Panel, useReactFlow, useStoreApi } from '@xyflow/react';
 import { useMemo, useState } from 'react';
 import { Icon } from '@canvas/components/ui/Icon';
-import {nodeAppearance} from '@canvas/lib/nodeStyles';
+import { nodeAppearance } from '@canvas/lib/nodeStyles';
 import { useWorkflowStore } from '@canvas/store/useWorkflowStore';
 import type { NodeDefinition, NodePreset } from '@canvas/types/graph';
-import { Handle, SPECIAL_HANDLES, isSpecialHandle } from '@canvas/lib/handles';
+import { Handle, SPECIAL_HANDLES, isFlowHandle, isSpecialHandle } from '@canvas/lib/handles';
 import { getFolderMeta } from '@canvas/lib/folders';
-import {useResizablePanel} from "@canvas/lib/useResizablePanel";
+import { useResizablePanel } from '@canvas/lib/useResizablePanel';
 
 const GRID = 16;
 const NODE_WIDTH = 240;
@@ -135,7 +135,7 @@ function PickerPanel() {
                 if ((SPECIAL_HANDLES as readonly string[]).includes(targetHandle)) {
                     return def.outputs.includes(targetHandle);
                 }
-                return def.outputs.some((o) => (['main', 'true', 'false'] as readonly string[]).includes(o));
+                return def.outputs.some(isFlowHandle);
             }
 
             if (sourceHandle) {
