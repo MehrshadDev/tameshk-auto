@@ -59,9 +59,6 @@ class WorkflowGraphController extends Controller
         ]);
     }
 
-    /**
-     * @throws \Throwable
-     */
     public function update(UpdateWorkflowGraphRequest $request, Workflow $workflow, GraphSaver $saver, WorkflowPublisher $publisher): JsonResponse
     {
         Gate::authorize('update', $workflow);
@@ -127,6 +124,9 @@ class WorkflowGraphController extends Controller
             }
         }
 
+        $singleTargetHandles = [HandleType::ChatModel->value, HandleType::Memory->value];
+        $usedSingleSlots = [];
+
         foreach ($edges as $index => $edge) {
             $sourceDef = $definitions[$typeByKey[$edge['source']] ?? ''] ?? null;
             $targetDef = $definitions[$typeByKey[$edge['target']] ?? ''] ?? null;
@@ -148,6 +148,15 @@ class WorkflowGraphController extends Controller
                 || (HandleType::isSpecial($sourceHandle) && $sourceHandle !== $targetHandle)
             ) {
                 $errors["edges.$index.targetHandle"] = "$label: نوع اتصال این دو نود با هم سازگار نیست.";
+            } elseif (in_array($targetHandle, $singleTargetHandles, true)) {
+                $slotKey = "{$edge['target']}:$targetHandle";
+
+                if (isset($usedSingleSlots[$slotKey])) {
+                    $slotName = $targetHandle === HandleType::ChatModel->value ? 'مدل چت' : 'حافظه';
+                    $errors["edges.$index.targetHandle"] = "$label: به هر ایجنت فقط یک «{$slotName}» می‌توان متصل کرد.";
+                }
+
+                $usedSingleSlots[$slotKey] = true;
             }
         }
 

@@ -9,9 +9,10 @@
     ];
 @endphp
 
-<div x-data="{ show: false }"
-     x-on:open-modal.window="if (($event.detail?.name ?? $event.detail) === @js($name)) show = true"
-     x-on:close-modal.window="if (($event.detail?.name ?? $event.detail) === @js($name)) show = false"
+<div data-modal-name="{{ $name }}"
+     x-data="{ show: false }"
+     x-on:open-modal.window="if (($event.detail?.name ?? $event.detail) === $el.dataset.modalName) show = true"
+     x-on:close-modal.window="if (($event.detail?.name ?? $event.detail) === $el.dataset.modalName) show = false"
      x-on:keydown.escape.window="show = false"
      x-show="show"
      x-cloak
@@ -33,7 +34,7 @@
             <div class="flex items-center justify-between border-b border-line-border px-6 py-4">
                 <h2 class="text-base font-bold text-content-main">{{ $title }}</h2>
                 <button type="button" @click="show = false" aria-label="بستن"
-                        class="rounded-lg p-1.5 text-content-muted transition hover:bg-line-border/60 hover:text-content-main flex justify-center items-center">
+                        class="rounded-lg p-1.5 text-content-muted transition hover:bg-line-border/60 hover:text-content-main flex justify-center items-center cursor-pointer">
                     <x-ui.icon name="x"/>
                 </button>
             </div>

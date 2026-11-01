@@ -65,13 +65,15 @@ export function WorkflowNode({ id, data, selected }: NodeProps<FlowNode>) {
     const isSupplyConnected = isSupplyNode && edges.some((edge) => edge.source === id);
 
     const isSlotConnected = (handle: string) =>
-        edges.some((edge) => {
-            if (edge.target !== id || edge.targetHandle !== handle) return false;
-            const src = nodes.find((n) => n.id === edge.source);
-            return !src?.data.config?.disabled;
-        });
+        edges.some((edge) => edge.target === id && edge.targetHandle === handle);
 
-    const isMissingModel = hasEverRun && isAiAgent && !isSlotConnected(HandleId.ChatModel);
+    const hasActiveModel = edges.some((edge) => {
+        if (edge.target !== id || edge.targetHandle !== HandleId.ChatModel) return false;
+        const src = nodes.find((n) => n.id === edge.source);
+        return Boolean(src && !src.data.config?.disabled);
+    });
+
+    const isMissingModel = hasEverRun && isAiAgent && !hasActiveModel;
     const isForeignConnecting = Boolean(connectingHandle && connectingHandle.nodeId !== id);
 
     const conditionOutcome =

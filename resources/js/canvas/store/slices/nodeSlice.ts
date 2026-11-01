@@ -54,6 +54,19 @@ export const createNodeSlice: Slice<NodeSlice> = (set, get) => ({
             if (alreadyHasTrigger) return;
         }
 
+        if (
+            pendingTargetConnection &&
+            isSingleSlot(pendingTargetConnection.targetHandle) &&
+            edges.some(
+                (e) =>
+                    e.target === pendingTargetConnection.targetNodeId &&
+                    e.targetHandle === pendingTargetConnection.targetHandle,
+            )
+        ) {
+            set({ pendingTargetConnection: null, panel: null });
+            return;
+        }
+
         let adjustedPos: XYPosition;
 
         if (pendingTargetConnection) {
@@ -65,7 +78,7 @@ export const createNodeSlice: Slice<NodeSlice> = (set, get) => ({
                 const baseY = target.position.y + SUPPLY_OFFSET_Y;
 
                 if (isSingleSlot(targetHandle)) {
-                    adjustedPos = { x: baseX, y: baseY };
+                    adjustedPos = calculateNextPosition(nodes, { x: baseX, y: baseY });
                 } else {
                     const existingCount = edges.filter(
                         (e) => e.target === target.id && e.targetHandle === targetHandle,
@@ -211,6 +224,15 @@ export const createNodeSlice: Slice<NodeSlice> = (set, get) => ({
     },
 
     startTargetConnection: (targetNodeId, targetHandle) => {
+        const { edges } = get();
+
+        if (
+            isSingleSlot(targetHandle) &&
+            edges.some((e) => e.target === targetNodeId && e.targetHandle === targetHandle)
+        ) {
+            return;
+        }
+
         set({
             pendingTargetConnection: { targetNodeId, targetHandle },
             pendingConnection: null,

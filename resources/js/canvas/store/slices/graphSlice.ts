@@ -11,6 +11,7 @@ import { fetchGraph, saveGraph } from '@canvas/api/workflows';
 import { toFlowEdge, toFlowNode, toGraphPayload, type FlowNode } from '@canvas/lib/graph';
 import type { GraphResponse, NodeDefinition, TriggerEndpoint } from '@canvas/types/graph';
 import { ApiError } from '@canvas/api/client';
+import { isSingleSlot } from '@canvas/lib/agentLayout';
 import { isSpecialHandle } from '@canvas/lib/handles';
 import type {
     ChatMessage,
@@ -266,6 +267,19 @@ export const createGraphSlice: Slice<GraphSlice> = (set, get) => ({
                 target: connection.source,
                 targetHandle: connection.sourceHandle ?? defB?.outputs[0] ?? 'tool',
             };
+        }
+
+        const targetNode = state.nodes.find((n) => n.id === finalConnection.target);
+        const targetDef = state.definitions.find((d) => d.type === targetNode?.data.nodeType);
+        const targetHandle = finalConnection.targetHandle ?? targetDef?.inputs[0] ?? 'main';
+
+        if (
+            isSingleSlot(targetHandle) &&
+            state.edges.some(
+                (edge) => edge.target === finalConnection.target && edge.targetHandle === targetHandle,
+            )
+        ) {
+            return;
         }
 
         set((state) => ({

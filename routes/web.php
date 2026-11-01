@@ -9,7 +9,9 @@ use App\Http\Controllers\WorkflowExecutionController;
 use App\Http\Controllers\WorkflowGraphController;
 use App\Http\Controllers\WorkflowMemoryController;
 use App\Http\Controllers\WorkflowPublishController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
@@ -32,9 +34,27 @@ Route::middleware('auth')
             ->name('workflows.index');
         Route::get('/workflows/{workflow:public_id}', [WorkflowController::class, 'show'])
             ->name('workflows.show');
+        Route::view('/credentials', 'pages.credentials.index')
+            ->name('credentials.index');
 
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('ping', fn () => response()->json(['status' => 'ok']))->name('ping');
+
+            Route::patch('profile', function (Request $request) {
+                $data = $request->validate([
+                    'name' => ['required', 'string', 'min:2', 'max:50'],
+                ]);
+
+                $cleanName = trim(strip_tags($data['name']));
+
+                if (mb_strlen($cleanName) < 2) {
+                    throw ValidationException::withMessages(['name' => 'نام واردشده معتبر نیست.']);
+                }
+
+                $request->user()->update(['name' => $cleanName]);
+
+                return response()->json(['name' => $cleanName]);
+            })->middleware('throttle:20,1')->name('profile.update');
 
             Route::get('oauth/google/redirect', [GoogleOAuthController::class, 'redirect'])
                 ->name('oauth.google.redirect');

@@ -2,14 +2,18 @@
 
 <div
     wire:key="verify-{{ md5(($expiresAt ?? '') . '|' . ($resendAt ?? '')) }}"
+    data-expires-at="{{ $expiresAt ?? '' }}"
+    data-resend-at="{{ $resendAt ?? '' }}"
     x-data="{
         remaining: 0,
         resendRemaining: 0,
         timerId: null,
         expired: false,
         init() {
-            const expiresAt = @js($expiresAt) ? new Date(@js($expiresAt)).getTime() : 0;
-            const resendAt = @js($resendAt) ? new Date(@js($resendAt)).getTime() : 0;
+            const rawExpires = this.$el.dataset.expiresAt;
+            const rawResend = this.$el.dataset.resendAt;
+            const expiresAt = rawExpires ? new Date(rawExpires).getTime() : 0;
+            const resendAt = rawResend ? new Date(rawResend).getTime() : 0;
 
             const tick = () => {
                 const now = Date.now();

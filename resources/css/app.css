@@ -7,6 +7,22 @@
 @source '../**/*.js';
 
 @font-face {
+    font-family: 'JetBrains Mono';
+    src: url('../fonts/jetbrains-mono/JetBrainsMono-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('../fonts/jetbrains-mono/JetBrainsMono-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
     font-family: 'Vazirmatn';
     src: url('../fonts/vazirmatn/Vazirmatn-Variable.woff2') format('woff2');
     font-style: normal;
@@ -37,6 +53,7 @@
     color-scheme: light;
 
     --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
 }
 
 .dark {
@@ -56,6 +73,7 @@
     --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
     'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
     --font-vazirmatn-rd: 'Vazirmatn RD', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Vazirmatn', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
     --color-surface-base: var(--color-surface-base);
     --color-surface-raised: var(--color-surface-raised);

@@ -3,6 +3,7 @@
 <div x-data="{ open: false }"
      @keydown.escape.window="open = false"
      @click.outside="open = false"
+     :class="open && 'z-50'"
      class="relative">
     <div @click="open = !open" :aria-expanded="open">
         {{ $trigger }}
@@ -17,7 +18,7 @@
          x-transition:leave-start="opacity-100 scale-100"
          x-transition:leave-end="opacity-0 scale-95"
          @click="open = false"
-         class="absolute z-50 mt-2 {{ $width }} {{ $align === 'left' ? 'left-0 origin-top-left' : 'right-0 origin-top-right' }} overflow-hidden rounded-xl border border-line-border bg-surface-raised p-1.5 shadow-xl">
+         class="absolute z-50 mt-2 {{ $width }} {{ $align === 'left' ? 'left-0 origin-top-left' : 'right-0 origin-top-right' }} overflow-hidden rounded-xl border border-line-border bg-surface-raised p-1.5 shadow-2xl">
         {{ $slot }}
     </div>
 </div>

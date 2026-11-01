@@ -101,10 +101,11 @@ export function AiAgentNodeCard({
 
             {AGENT_SLOTS.map((slot) => {
                 const connected = isSlotConnected(slot.handle);
+                const blocked = slot.single && connected;
                 const compatible =
                     isForeignConnecting &&
                     connectingHandle?.handleId === slot.handle &&
-                    (!slot.single || !connected);
+                    !blocked;
                 const dimmed = isForeignConnecting && !compatible;
                 const showDiamond = connected || compatible;
                 const showHandlePlus = !connected && !inProgress;
@@ -121,6 +122,7 @@ export function AiAgentNodeCard({
                             id={slot.handle}
                             type="target"
                             position={Position.Bottom}
+                            isConnectable={!blocked}
                             title={
                                 slot.single
                                     ? undefined
@@ -128,15 +130,16 @@ export function AiAgentNodeCard({
                             }
                             onClick={(e) => {
                                 e.stopPropagation();
+                                if (blocked) return;
                                 startTargetConnection(id, slot.handle);
                             }}
-                            className={DIAMOND_HANDLE}
+                            className={`${DIAMOND_HANDLE} ${blocked ? 'cursor-default!' : ''}`}
                         >
                             {showDiamond && (
                                 <span
-                                    className={`pointer-events-none absolute inset-0 m-auto size-3 rotate-45 rounded-xs border-2 border-surface-card bg-purple-500 shadow-xs transition hover:scale-125 ${
-                                        compatible ? 'scale-150 ring-4 ring-purple-500/30' : ''
-                                    }`}
+                                    className={`pointer-events-none absolute inset-0 m-auto size-3 rotate-45 rounded-xs border-2 border-surface-card bg-purple-500 shadow-xs transition ${
+                                        blocked ? '' : 'hover:scale-125'
+                                    } ${compatible ? 'scale-150 ring-4 ring-purple-500/30' : ''}`}
                                 />
                             )}
 

@@ -25,10 +25,14 @@
     @endif
 
     <div
+        data-init-dir="{{ $dir ?? 'ltr' }}"
+        data-smart-dir="{{ $smartDir ? '1' : '0' }}"
+        data-input-type="{{ $type }}"
         x-data="{
-            dir: @js($dir ?? 'ltr'),
+            dir: 'ltr',
             visible: false,
-            smartDir: @js($smartDir),
+            smartDir: true,
+            baseType: 'text',
             isRTL(text) {
                 return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(text);
             },
@@ -41,13 +45,18 @@
                 this.dir = this.isRTL(text) ? 'rtl' : 'ltr';
             }
         }"
-        x-init="update()"
+        x-init="
+            dir = $el.dataset.initDir || 'ltr';
+            smartDir = $el.dataset.smartDir === '1';
+            baseType = $el.dataset.inputType || 'text';
+            update();
+        "
         class="relative"
     >
         <input
             x-ref="input"
             id="{{ $name }}"
-            :type="visible ? 'text' : @js($type)"
+            :type="visible ? 'text' : baseType"
             :dir="dir"
             @input="update()"
             @if ($placeholder) placeholder="{{ $placeholder }}" @endif
@@ -60,7 +69,7 @@
                 @click="visible = !visible"
                 tabindex="-1"
                 :aria-label="visible ? 'مخفی کردن رمز' : 'نمایش رمز'"
-                class="absolute inset-y-0 left-3 flex items-center text-content-muted hover:text-content-main transition"
+                class="absolute inset-y-0 left-3 flex items-center text-content-muted hover:text-content-main transition cursor-pointer"
             >
                 <x-ui.icon name="eye" x-show="!visible"/>
                 <x-ui.icon name="eye-closed" x-show="visible" x-cloak/>
