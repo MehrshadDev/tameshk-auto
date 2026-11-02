@@ -133,6 +133,8 @@ new class extends Component
             <p class="text-sm text-content-muted mt-1">برای شروع، ایمیل و رمز عبور خود را وارد کنید</p>
         </div>
 
+        <x-auth.alert />
+
         <form wire:submit="register" class="space-y-4">
             <x-auth.honeypot/>
 
@@ -144,6 +146,15 @@ new class extends Component
 
             <x-auth.submit target="register" label="ارسال کد تایید" loading="در حال ارسال..."/>
         </form>
+
+        <div class="relative my-6 text-center text-xs text-content-muted">
+            <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-line-border"></div>
+            </div>
+            <span class="relative bg-surface-base px-3">یا ثبت‌نام با</span>
+        </div>
+
+        <x-auth.google-button label="ثبت‌نام با حساب گوگل"/>
 
         <p class="mt-6 text-center text-sm text-content-muted">
             حساب دارید؟

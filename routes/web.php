@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\CredentialController;
 use App\Http\Controllers\GoogleSheetsOptionsController;
 use App\Http\Controllers\HomeController;
@@ -24,6 +25,18 @@ Route::middleware('guest')->group(function () {
     Route::view('/register', 'pages.auth.register')->name('register');
     Route::view('/forgot-password', 'pages.auth.forgot-password')
         ->name('password.request');
+
+    Route::get('/auth/google/redirect', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])
+        ->middleware('throttle:20,1')
+        ->name('auth.google.redirect');
+
+    Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callback'])
+        ->middleware('throttle:20,1')
+        ->name('auth.google.callback');
+
+    Route::post('/auth/google/one-tap', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'oneTap'])
+        ->middleware('throttle:15,1')
+        ->name('auth.google.one-tap');
 });
 
 Route::middleware('auth')

@@ -87,6 +87,8 @@ new class extends Component {
         <p class="text-sm text-content-muted mt-1">برای ادامه وارد حساب خود شوید</p>
     </div>
 
+    <x-auth.alert />
+
     <form wire:submit="login" class="space-y-4">
         <x-auth.honeypot/>
 
@@ -104,6 +106,15 @@ new class extends Component {
 
         <x-auth.submit target="login" label="ورود" loading="در حال ورود..."/>
     </form>
+
+    <div class="relative my-6 text-center text-xs text-content-muted">
+        <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-line-border"></div>
+        </div>
+        <span class="relative bg-surface-base px-3">یا ورود با</span>
+    </div>
+
+    <x-auth.google-button label="ورود با حساب گوگل"/>
 
     <p class="mt-6 text-center text-sm text-content-muted">
         حساب ندارید؟

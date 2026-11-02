@@ -32,6 +32,11 @@ return [
     ],
 
     'google' => [
-        'redirect_uri' => env('SERVICES_GOOGLE_REDIRECT_URI'),
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
+        'auth_base_url' => env('GOOGLE_AUTH_BASE_URL', 'https://accounts.google.com'),
+        'oauth_base_url' => env('GOOGLE_OAUTH_BASE_URL', 'https://oauth2.googleapis.com'),
+        'api_base_url' => env('GOOGLE_API_BASE_URL', 'https://www.googleapis.com'),
     ],
 ];
