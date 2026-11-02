@@ -70,6 +70,7 @@
         </main>
     </div>
 </div>
+<x-dashboard.profile-modal/>
 <x-dashboard.logout-modal/>
 <x-ui.toast/>
 @livewireScripts

@@ -11,10 +11,14 @@
     $schema = $activeDef['schema'] ?? [];
     $isOAuthType = in_array($selectedType, ['gmail', 'google'], true);
     $callbackUrl = url('/oauth/google/callback');
+    $modalTitle = $editingId
+        ? 'ویرایش اعتبارنامه — ' . ($activeDef['name'] ?? '')
+        : ($activeDef ? 'افزودن ' . $activeDef['name'] : 'انتخاب سرویس اعتبارنامه');
 @endphp
 
 <x-ui.modal name="credential-form-modal"
-            :title="$editingId ? 'ویرایش اعتبارنامه' : ($activeDef ? 'افزودن ' . $activeDef['name'] : 'انتخاب سرویس اعتبارنامه')"
+            :title="$modalTitle"
+            :icon="$activeDef['icon'] ?? null"
             maxWidth="xl">
     @if (! $editingId && ! $activeDef)
         <div x-data="{ typeQuery: '' }" class="space-y-4">
@@ -34,45 +38,41 @@
                             x-show="!typeQuery.trim() || $el.dataset.search.includes(typeQuery.trim().toLowerCase())"
                             wire:click="selectType('{{ $typeKey }}')"
                             class="group flex items-start gap-3 rounded-2xl border border-line-border bg-surface-card p-3.5 text-start transition hover:border-primary/50 hover:bg-surface-raised cursor-pointer">
-                        <div
-                            class="flex size-10 shrink-0 items-center justify-center rounded-xl border border-line-border/60 bg-surface-base text-primary transition group-hover:scale-105">
+                        <div class="flex size-10 shrink-0 items-center justify-center rounded-xl border border-line-border/60 bg-surface-base text-primary transition group-hover:scale-105">
                             <x-ui.icon :name="$def['icon'] ?? 'key'" class="size-5"/>
                         </div>
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-bold text-content-main group-hover:text-primary">{{ $def['name'] }}</p>
-                            <p class="mt-1 line-clamp-2 text-[11px] leading-5 text-content-muted">{{ $def['description'] }}</p>
+                            <p dir="auto" class="mt-1 line-clamp-2 text-[11px] leading-5 text-content-muted">{{ $def['description'] }}</p>
                         </div>
                     </button>
                 @endforeach
             </div>
         </div>
     @elseif ($activeDef)
-        <form wire:submit="saveCredential" autocomplete="off" class="space-y-4">
-            <div
-                class="flex items-center justify-between gap-3 rounded-xl border border-line-border/70 bg-surface-card p-3">
-                <div class="flex items-center gap-3 min-w-0">
-                    <div
-                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <x-ui.icon :name="$activeDef['icon'] ?? 'key'" class="size-5"/>
+        <form wire:key="cred-form-{{ $editingId ?? 'new' }}-{{ $selectedType }}"
+              wire:submit="saveCredential"
+              autocomplete="off"
+              class="space-y-4">
+            @if (! $editingId)
+                <button type="button"
+                        wire:click="backToTypeList"
+                        class="flex w-full items-center justify-between gap-3 rounded-xl border border-line-border/70 bg-surface-card px-3.5 py-2.5 text-start transition hover:border-primary/40 hover:bg-surface-raised cursor-pointer">
+                    <div class="flex min-w-0 items-center gap-2.5">
+                        <x-ui.icon :name="$activeDef['icon'] ?? 'key'" class="size-5 shrink-0 text-primary"/>
+                        <span class="truncate text-xs font-bold text-content-main">{{ $activeDef['name'] }}</span>
                     </div>
-                    <div class="min-w-0">
-                        <p class="truncate text-xs font-bold text-content-main">{{ $activeDef['name'] }}</p>
-                        <p class="mt-0.5 truncate text-[11px] text-content-muted">{{ $activeDef['description'] }}</p>
-                    </div>
-                </div>
-
-                @if (! $editingId)
-                    <button type="button"
-                            wire:click="backToTypeList"
-                            class="shrink-0 rounded-lg border border-line-border px-2.5 py-1 text-[11px] font-semibold text-content-muted transition hover:text-content-main cursor-pointer">
-                        تغییر سرویس
-                    </button>
-                @endif
-            </div>
+                    <span class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                        <span>تغییر سرویس</span>
+                        <x-ui.icon name="chevron-left" class="size-3.5"/>
+                    </span>
+                </button>
+            @endif
 
             <x-ui.input
                 name="credentialName"
                 label="نام حساب در تمشک"
+                value="{{ $this->credentialName }}"
                 wire:model="credentialName"
                 maxlength="100"
                 placeholder="مثلاً: حساب اصلی شرکت"
@@ -81,8 +81,10 @@
             @foreach ($schema as $fieldKey => $field)
                 @php
                     $isSecret = ($field['type'] ?? 'text') === 'password';
-                    $label = ($field['label'] ?? $fieldKey) . ($editingId && $isSecret ? ' (در صورت عدم تغییر خالی بگذارید)' : '');
-                    $placeholder = $editingId && $isSecret ? '••••••••••••••••' : ($field['placeholder'] ?? '');
+                    $label = $field['label'] ?? $fieldKey;
+                    $placeholder = $editingId && $isSecret
+                        ? 'بدون تغییر (برای تغییر، مقدار جدید وارد کنید)'
+                        : ($field['placeholder'] ?? '');
                 @endphp
 
                 <div>
@@ -91,13 +93,12 @@
                         :type="$isSecret ? 'password' : 'text'"
                         :label="$label"
                         :placeholder="$placeholder"
-                        :smart-dir="false"
-                        dir="ltr"
+                        value="{{ $this->formData[$fieldKey] ?? '' }}"
                         wire:model="formData.{{ $fieldKey }}"
                         autocomplete="new-password"
                     />
                     @if (! empty($field['help']))
-                        <p class="mt-1 text-[11px] leading-5 text-content-muted">{{ $field['help'] }}</p>
+                        <p dir="auto" class="mt-1.5 text-start text-[11px] leading-5 text-content-muted/80">{{ $field['help'] }}</p>
                     @endif
                 </div>
             @endforeach
@@ -109,25 +110,28 @@
             @enderror
 
             @if ($isOAuthType)
-                <div class="space-y-2 rounded-xl border border-line-border/80 bg-surface-card p-3.5">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-content-main">Redirect URI</span>
-                        <span class="text-[10px] text-content-muted">جهت ثبت در Google Cloud Console</span>
-                    </div>
+                <div>
+                    <label dir="auto" class="mb-1.5 block text-start text-sm font-medium text-content-main">
+                        Redirect URI
+                    </label>
                     <div class="flex items-center gap-2">
                         <input type="text"
                                readonly
                                dir="ltr"
                                value="{{ $callbackUrl }}"
                                onclick="this.select()"
-                               class="w-full rounded-lg border border-line-border bg-surface-base px-3 py-2 font-mono text-xs text-content-main focus:outline-none"/>
+                               class="w-full rounded-xl border border-line-border bg-surface-base px-4 py-2.5 font-mono text-xs text-content-muted focus:border-primary focus:outline-none"/>
                         <button type="button"
                                 data-url="{{ $callbackUrl }}"
+                                title="کپی آدرس"
                                 @click="navigator.clipboard.writeText($el.dataset.url); $dispatch('notify', { message: 'آدرس Redirect URI کپی شد.', type: 'success' })"
-                                class="flex size-8.5 shrink-0 items-center justify-center rounded-lg border border-line-border bg-surface-raised text-content-muted transition hover:border-primary hover:text-primary cursor-pointer">
-                            <x-ui.icon name="copy" class="size-4"/>
+                                class="flex size-10.5 shrink-0 items-center justify-center rounded-xl border border-line-border bg-surface-base text-content-muted transition hover:border-primary hover:text-primary cursor-pointer">
+                            <x-ui.icon name="copy" class="size-4.5"/>
                         </button>
                     </div>
+                    <p dir="auto" class="mt-1.5 text-start text-[11px] leading-5 text-content-muted/80">
+                        این آدرس را در بخش Authorized redirect URIs در کنسول Google Cloud ثبت کنید.
+                    </p>
                 </div>
             @endif
 

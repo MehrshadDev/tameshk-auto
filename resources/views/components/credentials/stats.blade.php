@@ -5,7 +5,7 @@
     'inUseCount' => 0,
 ])
 
-<div class="grid grid-cols-2 gap-3 lg:grid-cols-4 sm:gap-4">
+<div class="grid grid-cols-2 gap-3 md:grid-cols-4 sm:gap-4">
     <div class="flex items-center gap-3.5 rounded-2xl border border-line-border bg-surface-card p-4 shadow-2xs">
         <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <x-ui.icon name="key" class="size-5.5"/>

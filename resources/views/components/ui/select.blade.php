@@ -4,7 +4,6 @@
     'wireModel' => '',
     'placeholder' => 'انتخاب کنید',
     'searchable' => true,
-    'width' => 'w-full sm:w-60',
 ])
 
 @php
@@ -17,18 +16,18 @@
      @keydown.escape.window="open = false"
      @click.outside="open = false"
      :class="open && 'z-50'"
-     class="relative {{ $width }} select-none">
+     class="relative w-full shrink-0 select-none sm:w-52">
 
     <button type="button"
             @click="open = !open; if (open) { query = ''; $nextTick(() => $refs.searchInput?.focus()); }"
             :aria-expanded="open"
             :class="open ? 'border-primary bg-surface-card ring-2 ring-primary/20' : 'border-line-border bg-surface-base hover:border-content-muted/40'"
-            class="flex w-full items-center justify-between gap-2.5 rounded-xl border px-3.5 py-2 text-xs font-medium text-content-main transition cursor-pointer">
+            class="flex h-9.5 w-full items-center justify-between gap-2 rounded-xl border px-3 text-xs font-medium text-content-main transition cursor-pointer">
         <span class="flex min-w-0 items-center gap-2">
             @if ($selectedIcon)
                 <x-ui.icon :name="$selectedIcon" class="size-4 shrink-0 text-primary"/>
             @endif
-            <span class="truncate font-semibold text-content-main">{{ $selectedLabel }}</span>
+            <span dir="auto" class="truncate font-semibold text-content-main">{{ $selectedLabel }}</span>
         </span>
 
         <x-ui.icon name="chevron-down"
@@ -54,7 +53,7 @@
                            type="text"
                            x-model="query"
                            @click.stop
-                           placeholder="جستجو در سرویس‌ها..."
+                           placeholder="جستجو..."
                            class="w-full rounded-xl border border-line-border bg-surface-card py-1.5 pe-2.5 ps-8 text-xs text-content-main placeholder:text-content-muted/50 focus:border-primary focus:outline-none"/>
                 </div>
             </div>

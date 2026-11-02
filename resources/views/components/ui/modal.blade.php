@@ -1,4 +1,4 @@
-@props(['name', 'title' => null, 'maxWidth' => 'md'])
+@props(['name', 'title' => null, 'icon' => null, 'maxWidth' => 'md'])
 
 @php
     $widths = [
@@ -31,8 +31,15 @@
          x-transition:leave-end="opacity-0 translate-y-4 scale-95"
          class="relative w-full {{ $widths[$maxWidth] }} rounded-2xl border border-line-border bg-surface-raised shadow-2xl">
         @if ($title)
-            <div class="flex items-center justify-between border-b border-line-border px-6 py-4">
-                <h2 class="text-base font-bold text-content-main">{{ $title }}</h2>
+            <div class="flex items-center justify-between gap-3 border-b border-line-border px-6 py-4">
+                <div class="flex min-w-0 items-center gap-2.5">
+                    @if ($icon)
+                        <span class="flex size-8 shrink-0 items-center justify-center rounded-xl border border-line-border/70 bg-surface-card text-primary">
+                            <x-ui.icon :name="$icon" class="size-4.5"/>
+                        </span>
+                    @endif
+                    <h2 class="truncate text-base font-bold text-content-main">{{ $title }}</h2>
+                </div>
                 <button type="button" @click="show = false" aria-label="بستن"
                         class="rounded-lg p-1.5 text-content-muted transition hover:bg-line-border/60 hover:text-content-main flex justify-center items-center cursor-pointer">
                     <x-ui.icon name="x"/>

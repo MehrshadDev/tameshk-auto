@@ -10,16 +10,12 @@
 @php
     $isPassword = $type === 'password';
 
-    $baseClasses = 'autofill-reset w-full px-4 py-2.5 rounded-xl bg-surface-base border border-line-border text-content-main placeholder:text-content-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition';
-
-    if ($isPassword) {
-        $baseClasses .= ' pl-12';
-    }
+    $baseClasses = 'autofill-reset w-full py-2.5 rounded-xl bg-surface-base border border-line-border text-content-main placeholder:text-content-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition ' . ($isPassword ? 'pr-4 pl-12' : 'px-4');
 @endphp
 
 <div>
     @if ($label)
-        <label for="{{ $name }}" class="block text-sm font-medium text-content-main mb-1.5">
+        <label for="{{ $name }}" dir="auto" class="mb-1.5 block text-start text-sm font-medium text-content-main">
             {{ $label }}
         </label>
     @endif
@@ -50,6 +46,7 @@
             smartDir = $el.dataset.smartDir === '1';
             baseType = $el.dataset.inputType || 'text';
             update();
+            $nextTick(() => update());
         "
         class="relative"
     >

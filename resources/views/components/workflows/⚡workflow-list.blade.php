@@ -27,7 +27,7 @@ new class extends Component {
 
     #[Locked]
     public ?int $deletingId = null;
-    
+
     #[Locked]
     public ?int $editingId = null;
 
@@ -194,7 +194,7 @@ new class extends Component {
             return;
         }
 
-        RateLimiter::hit($rateKey, 60);
+        RateLimiter::hit($rateKey);
 
         $maxAllowed = (int) config('workflow.max_per_user', 50);
 
@@ -597,11 +597,7 @@ new class extends Component {
         @endforelse
     </div>
 
-    @if ($this->workflows->hasPages())
-        <div>
-            {{ $this->workflows->links() }}
-        </div>
-    @endif
+    <x-ui.pagination :paginator="$this->workflows" />
 
     <x-workflows.modals :deleting-name="$this->deleting?->name"/>
 </div>

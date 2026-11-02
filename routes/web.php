@@ -34,6 +34,8 @@ Route::middleware('auth')
             ->name('workflows.index');
         Route::get('/workflows/{workflow:public_id}', [WorkflowController::class, 'show'])
             ->name('workflows.show');
+        Route::view('/runs', 'pages.runs.index')
+            ->name('runs.index');
         Route::view('/credentials', 'pages.credentials.index')
             ->name('credentials.index');
 

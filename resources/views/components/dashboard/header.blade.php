@@ -63,7 +63,7 @@
                         @else
                             <span data-initial="{{ mb_substr($user->name, 0, 1) }}"
                                   class="flex size-7 items-center justify-center rounded-lg bg-primary font-mono text-xs font-bold text-white"
-                                  x-text="$store.userProfile?.name ? $store.userProfile.name.slice(0, 1) : $el.dataset.initial">
+                                  x-text="$store.userProfile?.name ? $store.userProfile.name.slice(0, 1).toUpperCase() : $el.dataset.initial">
                                 {{ mb_substr($user->name, 0, 1) }}
                             </span>
                         @endif
@@ -75,99 +75,38 @@
                     </button>
                 </x-slot:trigger>
 
-                <div data-name="{{ $user->name }}"
-                     data-profile-url="{{ route('app.api.profile.update') }}"
-                     x-data="{
-                         editingName: false,
-                         draftName: '',
-                         savingName: false,
-                         init() {
-                             this.draftName = $store.userProfile?.name || this.$el.dataset.name;
-                         },
-                         startEdit() {
-                             this.draftName = $store.userProfile?.name || this.$el.dataset.name;
-                             this.editingName = true;
-                             this.$nextTick(() => {
-                                 this.$refs.nameInput?.focus();
-                                 this.$refs.nameInput?.select();
-                             });
-                         },
-                         async saveName() {
-                             const trimmed = this.draftName.trim();
-                             const current = $store.userProfile?.name || this.$el.dataset.name;
+                <div class="mb-1.5 flex items-center gap-3 rounded-xl bg-surface-card/80 p-2.5">
+                    @if ($user->avatar)
+                        <img src="{{ $user->avatar }}" alt="{{ $user->name }}" class="size-10 shrink-0 rounded-xl object-cover ring-1 ring-line-border">
+                    @else
+                        <span data-initial="{{ mb_substr($user->name, 0, 1) }}"
+                              class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 font-mono text-xs font-bold text-primary ring-1 ring-primary/20"
+                              x-text="$store.userProfile?.name ? $store.userProfile.name.slice(0, 1).toUpperCase() : $el.dataset.initial">
+                            {{ mb_substr($user->name, 0, 1) }}
+                        </span>
+                    @endif
 
-                             if (!trimmed || trimmed.length < 2 || trimmed.length > 50 || trimmed === current) {
-                                 this.editingName = false;
-                                 this.draftName = current;
-                                 return;
-                             }
-
-                             this.savingName = true;
-
-                             try {
-                                 const res = await fetch(this.$el.dataset.profileUrl, {
-                                     method: 'PATCH',
-                                     headers: {
-                                         'Content-Type': 'application/json',
-                                         'Accept': 'application/json',
-                                         'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content ?? ''
-                                     },
-                                     body: JSON.stringify({ name: trimmed })
-                                 });
-
-                                 const data = await res.json().catch(() => ({}));
-
-                                 if (res.ok && data.name) {
-                                     $store.userProfile.name = data.name;
-                                     this.draftName = data.name;
-                                     window.dispatchEvent(new CustomEvent('notify', { detail: { message: 'نام کاربری بروزرسانی شد.', type: 'success' } }));
-                                 } else {
-                                     this.draftName = current;
-                                     window.dispatchEvent(new CustomEvent('notify', { detail: { message: data.message || 'نام واردشده معتبر نیست.', type: 'error' } }));
-                                 }
-                             } catch {
-                                 this.draftName = current;
-                                 window.dispatchEvent(new CustomEvent('notify', { detail: { message: 'خطا در ذخیره نام.', type: 'error' } }));
-                             } finally {
-                                 this.savingName = false;
-                                 this.editingName = false;
-                             }
-                         }
-                     }"
-                     @click.stop
-                     class="mb-1.5 border-b border-line-border/70 px-3 py-2.5">
-                    <template x-if="!editingName">
-                        <button type="button"
-                                @click="startEdit()"
-                                title="برای تغییر نام کلیک کنید"
-                                class="group/name flex w-full items-center justify-between gap-2 rounded-lg px-1.5 py-1 transition hover:bg-line-border/50 cursor-pointer">
-                            <span dir="auto"
-                                  class="min-w-0 flex-1 truncate text-start text-xs font-bold text-content-main"
-                                  x-text="$store.userProfile?.name || draftName"></span>
-                            <x-ui.icon name="pencil" class="size-3.5 shrink-0 text-content-muted opacity-0 transition group-hover/name:opacity-100"/>
-                        </button>
-                    </template>
-
-                    <template x-if="editingName">
-                        <div class="flex items-center gap-1.5">
-                            <input x-ref="nameInput"
-                                   type="text"
-                                   dir="auto"
-                                   maxlength="50"
-                                   x-model="draftName"
-                                   :disabled="savingName"
-                                   @keydown.enter.prevent="saveName()"
-                                   @keydown.escape.prevent.stop="editingName = false"
-                                   @blur="saveName()"
-                                   class="w-full rounded-lg border border-primary bg-surface-base px-2 py-1 text-start text-xs font-bold text-content-main focus:outline-none focus:ring-2 focus:ring-primary/30"/>
-                        </div>
-                    </template>
-
-                    <p class="mt-1 px-1.5 truncate text-left font-mono text-[10px] text-content-muted" dir="ltr">{{ $user->email }}</p>
+                    <div class="min-w-0 flex-1">
+                        <p dir="auto"
+                           data-name="{{ $user->name }}"
+                           class="truncate text-start text-xs font-bold text-content-main"
+                           x-text="$store.userProfile?.name || $el.dataset.name">{{ $user->name }}</p>
+                        <p dir="ltr" class="mt-0.5 truncate text-left font-mono text-[10px] text-content-muted">{{ $user->email }}</p>
+                    </div>
                 </div>
+
+                <x-ui.dropdown-item icon="pencil" @click="$dispatch('open-modal', 'edit-profile-modal')">
+                    ویرایش نام کاربری
+                </x-ui.dropdown-item>
+
+                <div class="my-1 border-t border-line-border/60"></div>
 
                 <x-ui.dropdown-item :href="route('app.workflows.index')" icon="hierarchy-2">
                     ورکفلوهای من
+                </x-ui.dropdown-item>
+
+                <x-ui.dropdown-item :href="route('app.runs.index')" icon="history">
+                    تاریخچه اجراها
                 </x-ui.dropdown-item>
 
                 <x-ui.dropdown-item :href="route('app.credentials.index')" icon="key">

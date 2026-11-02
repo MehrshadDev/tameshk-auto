@@ -1,9 +1,14 @@
 @php
+    use App\Models\WorkflowRun;
+
     $user = auth()->user();
     $maxWorkflows = (int) config('workflow.max_per_user', 10);
     $totalWorkflows = $user ? $user->workflows()->count() : 0;
     $activeWorkflows = $user ? $user->workflows()->where('is_active', true)->count() : 0;
     $totalCredentials = $user ? $user->credentials()->count() : 0;
+    $totalRuns = $user
+        ? WorkflowRun::query()->whereHas('workflow', fn ($q) => $q->where('user_id', $user->id))->count()
+        : 0;
     $usagePercent = $maxWorkflows > 0 ? min(100, (int) round(($totalWorkflows / $maxWorkflows) * 100)) : 0;
 @endphp
 
@@ -66,10 +71,9 @@
 
         <x-dashboard.sidebar-link
             icon="history"
-            :href="Route::has('app.runs.index') ? route('app.runs.index') : '#'"
+            :href="route('app.runs.index')"
             :active="request()->routeIs('app.runs.*')"
-            :disabled="! Route::has('app.runs.index')"
-            :badge="Route::has('app.runs.index') ? null : 'به‌زودی'">
+            :count="$totalRuns">
             تاریخچه اجراها
         </x-dashboard.sidebar-link>
 
