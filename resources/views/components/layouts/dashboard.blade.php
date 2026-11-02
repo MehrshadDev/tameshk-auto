@@ -64,12 +64,14 @@
 
     <div class="flex min-w-0 flex-1 flex-col">
         <x-dashboard.header :heading="$heading" :subheading="$subheading"/>
+        <x-dashboard.grace-banner/>
 
         <main class="custom-scrollbar flex-1 overflow-y-auto bg-surface-base">
             {{ $slot }}
         </main>
     </div>
 </div>
+<x-dashboard.celebration-modal/>
 <x-dashboard.profile-modal/>
 <x-dashboard.logout-modal/>
 <x-ui.toast/>

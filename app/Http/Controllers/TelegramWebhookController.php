@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\RunWorkflowJob;
 use App\Models\Workflow;
+use App\Subscriptions\SubscriptionManager;
 use App\Workflow\Publishing\WorkflowPublisher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,9 +12,9 @@ use Illuminate\Support\Facades\Cache;
 
 class TelegramWebhookController extends Controller
 {
-    public function __invoke(Request $request, string $token): JsonResponse
+    public function __invoke(Request $request, string $token, SubscriptionManager $subscriptions): JsonResponse
     {
-        $workflow = Workflow::query()->where('webhook_token', $token)->first();
+        $workflow = Workflow::query()->with('user')->where('webhook_token', $token)->first();
 
         abort_if(! $workflow, 404);
 
@@ -21,7 +22,11 @@ class TelegramWebhookController extends Controller
 
         abort_unless(hash_equals(WorkflowPublisher::secretFor($workflow), $header), 403);
 
-        if (! $workflow->isPublished() || ! $workflow->is_active) {
+        if (! $workflow->isPublished() || ! $workflow->is_active || ! $workflow->user) {
+            return response()->json(['ok' => true]);
+        }
+
+        if (! $subscriptions->hasRunQuota($workflow->user)) {
             return response()->json(['ok' => true]);
         }
 
@@ -36,7 +41,7 @@ class TelegramWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        RunWorkflowJob::dispatch($workflow->id, $update);
+        RunWorkflowJob::dispatchSmart($workflow->id, $update);
 
         return response()->json(['ok' => true]);
     }

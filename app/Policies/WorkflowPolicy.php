@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\Workflow;
+use App\Subscriptions\SubscriptionManager;
 use Illuminate\Auth\Access\Response;
 
 class WorkflowPolicy
@@ -20,8 +21,10 @@ class WorkflowPolicy
 
     public function create(User $user): Response
     {
-        if ($user->workflows()->count() >= config('workflow.max_per_user')) {
-            return Response::deny('به سقف تعداد ورکفلو رسیدی. برای ساخت ورکفلو جدید یکی از قبلی‌ها رو حذف کن.');
+        $max = app(SubscriptionManager::class)->maxTotalWorkflows($user);
+
+        if ($max !== null && $user->workflows()->count() >= $max) {
+            return Response::deny('به سقف تعداد ورکفلو رسیدی. برای ساخت ورکفلو جدید یکی از قبلی‌ها رو حذف کن یا اشتراکت رو ارتقا بده.');
         }
 
         return Response::allow();

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\CredentialController;
 use App\Http\Controllers\GoogleSheetsOptionsController;
 use App\Http\Controllers\HomeController;
@@ -20,21 +21,25 @@ Route::get('/', [HomeController::class, 'index'])
 Route::get('/oauth/google/callback', [GoogleOAuthController::class, 'callback'])
     ->name('oauth.google.callback');
 
+Route::get('/billing/callback', [BillingController::class, 'callback'])
+    ->middleware('throttle:30,1')
+    ->name('billing.callback');
+
 Route::middleware('guest')->group(function () {
     Route::view('/login', 'pages.auth.login')->name('login');
     Route::view('/register', 'pages.auth.register')->name('register');
     Route::view('/forgot-password', 'pages.auth.forgot-password')
         ->name('password.request');
 
-    Route::get('/auth/google/redirect', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])
+    Route::get('/auth/google/redirect', [GoogleAuthController::class, 'redirect'])
         ->middleware('throttle:20,1')
         ->name('auth.google.redirect');
 
-    Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callback'])
+    Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback'])
         ->middleware('throttle:20,1')
         ->name('auth.google.callback');
 
-    Route::post('/auth/google/one-tap', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'oneTap'])
+    Route::post('/auth/google/one-tap', [GoogleAuthController::class, 'oneTap'])
         ->middleware('throttle:15,1')
         ->name('auth.google.one-tap');
 });
@@ -51,6 +56,12 @@ Route::middleware('auth')
             ->name('runs.index');
         Route::view('/credentials', 'pages.credentials.index')
             ->name('credentials.index');
+
+        Route::get('/billing', [BillingController::class, 'index'])
+            ->name('billing.index');
+        Route::post('/billing/checkout', [BillingController::class, 'checkout'])
+            ->middleware('throttle:10,1')
+            ->name('billing.checkout');
 
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('ping', fn () => response()->json(['status' => 'ok']))->name('ping');

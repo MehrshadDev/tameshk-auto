@@ -2,6 +2,7 @@
     'total' => 0,
     'max' => 10,
     'active' => 0,
+    'maxActive' => null,
     'runs' => 0,
     'successRate' => null,
 ])
@@ -15,7 +16,9 @@
             <p class="truncate text-xs font-medium text-content-muted">کل ورکفلوها</p>
             <div class="mt-1 flex items-baseline gap-1.5">
                 <span class="font-mono text-lg font-extrabold tabular-nums text-content-main">{{ $total }}</span>
-                <span class="text-[11px] text-content-muted">از {{ $max }}</span>
+                @if ($max !== null)
+                    <span class="text-[11px] text-content-muted">از {{ $max }}</span>
+                @endif
             </div>
         </div>
     </div>
@@ -28,7 +31,11 @@
             <p class="truncate text-xs font-medium text-content-muted">منتشرشده و فعال</p>
             <div class="mt-1 flex items-baseline gap-1.5">
                 <span class="font-mono text-lg font-extrabold tabular-nums text-content-main">{{ $active }}</span>
-                <span class="text-[11px] text-content-muted">ورکفلو</span>
+                @if ($maxActive !== null)
+                    <span class="text-[11px] text-content-muted">از {{ $maxActive }}</span>
+                @else
+                    <span class="text-[11px] text-content-muted">ورکفلو</span>
+                @endif
             </div>
         </div>
     </div>

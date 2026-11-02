@@ -22,6 +22,17 @@ class RunWorkflowJob implements ShouldQueue
         public readonly array $triggerData,
     ) {}
 
+    public static function dispatchSmart(int $workflowId, array $triggerData): void
+    {
+        if (config('queue.default') === 'sync') {
+            self::dispatchAfterResponse($workflowId, $triggerData);
+
+            return;
+        }
+
+        self::dispatch($workflowId, $triggerData);
+    }
+
     public function handle(WorkflowRunner $runner): void
     {
         $workflow = Workflow::query()->find($this->workflowId);

@@ -2,22 +2,23 @@
 
 namespace App\Workflow\Runner;
 
+use App\Credentials\CredentialResolver;
 use App\Models\Node;
 use App\Models\NodeRun;
 use App\Models\Workflow;
 use App\Models\WorkflowRun;
+use App\Subscriptions\SubscriptionManager;
 use App\Workflow\DTOs\NodeContext;
 use App\Workflow\DTOs\NodeResult;
 use App\Workflow\Enums\HandleType;
 use App\Workflow\Exceptions\NodeExecutionException;
+use App\Workflow\Graph\NodeConfigGuard;
 use App\Workflow\Registry\NodeRegistry;
 use App\Workflow\Support\TemplateEngine;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
-use App\Credentials\CredentialResolver;
-use App\Workflow\Graph\NodeConfigGuard;
 
 class WorkflowRunner
 {
@@ -31,10 +32,17 @@ class WorkflowRunner
         private readonly NodeRegistry $registry,
         private readonly CredentialResolver $credentials,
         private readonly NodeConfigGuard $guard,
+        private readonly SubscriptionManager $subscriptions,
     ) {}
 
     public function run(Workflow $workflow, array $triggerData = [], ?callable $onNodeStatus = null): WorkflowRun
     {
+        $workflow->loadMissing('user');
+
+        if ($workflow->user) {
+            $this->subscriptions->consumeRunQuota($workflow->user);
+        }
+
         $workflow->load('nodes', 'edges');
         $this->nodeOutputsByName = [];
 
@@ -84,6 +92,12 @@ class WorkflowRunner
 
     public function runSingleNode(Workflow $workflow, Node $node): NodeRun
     {
+        $workflow->loadMissing('user');
+
+        if ($workflow->user) {
+            $this->subscriptions->consumeRunQuota($workflow->user);
+        }
+
         $workflow->load('nodes', 'edges');
         $this->nodeOutputsByName = [];
 
@@ -182,7 +196,7 @@ class WorkflowRunner
             if ($lastRun && is_array($lastRun->output_data)) {
                 $this->nodeOutputsByName[$n->name] = $lastRun->output_data;
                 $this->nodeOutputsByName[str_replace(' ', '_', $n->name)] = $lastRun->output_data;
-                $this->nodeOutputsByName["node_{$n->id}"] = $lastRun->output_data;
+                $this->nodeOutputsByName["node_$n->id"] = $lastRun->output_data;
             }
         }
     }
@@ -204,7 +218,7 @@ class WorkflowRunner
         $steps = 0;
 
         while (! empty($queue)) {
-            if (Cache::get("cancel_workflow_run_{$run->id}")) {
+            if (Cache::get("cancel_workflow_run_$run->id")) {
                 $run->update(['status' => 'canceled', 'finished_at' => now()]);
                 return;
             }
@@ -218,7 +232,7 @@ class WorkflowRunner
             $nodeIterations[$node->id] = ($nodeIterations[$node->id] ?? 0) + 1;
 
             if ($nodeIterations[$node->id] > self::MAX_NODE_ITERATIONS) {
-                throw new RuntimeException("Node [{$node->name}] exceeded loop iteration limit (" . self::MAX_NODE_ITERATIONS . ").");
+                throw new RuntimeException("Node [$node->name] exceeded loop iteration limit (" . self::MAX_NODE_ITERATIONS . ").");
             }
 
             if ($onNodeStatus) {
@@ -230,7 +244,7 @@ class WorkflowRunner
 
                 $this->nodeOutputsByName[$node->name] = $result->output;
                 $this->nodeOutputsByName[str_replace(' ', '_', $node->name)] = $result->output;
-                $this->nodeOutputsByName["node_{$node->id}"] = $result->output;
+                $this->nodeOutputsByName["node_$node->id"] = $result->output;
 
                 if ($onNodeStatus && $this->lastExecutedNodeRun) {
                     $onNodeStatus($node->id, 'node_success', $this->lastExecutedNodeRun);
@@ -290,9 +304,9 @@ class WorkflowRunner
             $executor = $this->registry->make($node->type);
 
             $templateContext = [
-                'input'   => $input,
+                'input' => $input,
                 'trigger' => $run->trigger_data ?? [],
-                'nodes'   => $this->nodeOutputsByName,
+                'nodes' => $this->nodeOutputsByName,
                 ...$this->nodeOutputsByName,
             ];
 

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\RunWorkflowJob;
 use App\Models\Node;
+use App\Subscriptions\SubscriptionManager;
 use App\Workflow\Nodes\Triggers\ScheduleTriggerNode;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -15,8 +16,12 @@ class RunScheduledWorkflowsCommand extends Command
 
     protected $description = 'Check and dispatch published workflows with Schedule Trigger that are due.';
 
-    public function handle(): int
+    public function handle(SubscriptionManager $subscriptions): int
     {
+        if ($subscriptions->isSaasEnabled()) {
+            $subscriptions->expireOverdueSubscriptions();
+        }
+
         $now = Carbon::now();
         $minuteKey = $now->format('YmdHi');
 
@@ -25,7 +30,7 @@ class RunScheduledWorkflowsCommand extends Command
             ->whereHas('workflow', fn ($query) => $query
                 ->whereNotNull('published_at')
                 ->where('is_active', true))
-            ->with('workflow')
+            ->with('workflow.user')
             ->get();
 
         $dispatched = 0;
@@ -33,7 +38,11 @@ class RunScheduledWorkflowsCommand extends Command
         foreach ($triggers as $trigger) {
             $workflow = $trigger->workflow;
 
-            if (! $workflow) {
+            if (! $workflow || ! $workflow->user) {
+                continue;
+            }
+
+            if (! $subscriptions->hasRunQuota($workflow->user)) {
                 continue;
             }
 

@@ -1,15 +1,27 @@
 @php
     use App\Models\WorkflowRun;
+    use App\Subscriptions\SubscriptionManager;
 
     $user = auth()->user();
-    $maxWorkflows = (int) config('workflow.max_per_user', 10);
-    $totalWorkflows = $user ? $user->workflows()->count() : 0;
-    $activeWorkflows = $user ? $user->workflows()->where('is_active', true)->count() : 0;
+    $subscriptions = app(SubscriptionManager::class);
+    $saasEnabled = $subscriptions->isSaasEnabled();
+    $summary = $user ? $subscriptions->usageSummary($user) : null;
+
+    $planSlug = $summary ? $summary['plan']->slug : 'free';
+    $isPro = $saasEnabled && $planSlug === 'pro';
+    $isBusiness = $saasEnabled && $planSlug === 'business';
+
+    $maxWorkflows = $summary ? $summary['max_total_workflows'] : (int) config('workflow.max_per_user', 10);
+    $totalWorkflows = $summary ? $summary['total_workflows'] : 0;
+    $activeWorkflows = $summary ? $summary['active_workflows'] : 0;
+    $maxActiveWorkflows = $summary ? $summary['max_active_workflows'] : null;
     $totalCredentials = $user ? $user->credentials()->count() : 0;
     $totalRuns = $user
         ? WorkflowRun::query()->whereHas('workflow', fn ($q) => $q->where('user_id', $user->id))->count()
         : 0;
-    $usagePercent = $maxWorkflows > 0 ? min(100, (int) round(($totalWorkflows / $maxWorkflows) * 100)) : 0;
+    $usagePercent = ($maxWorkflows && $maxWorkflows > 0)
+        ? min(100, (int) round(($totalWorkflows / $maxWorkflows) * 100))
+        : 0;
 @endphp
 
 <div x-show="sidebarOpen"
@@ -37,7 +49,18 @@
 
     <div class="flex h-16 shrink-0 items-center justify-between border-b border-line-border/70 px-4"
          :class="collapsed && 'lg:justify-center lg:px-0'">
-        <x-layouts.logo :href="route('app.workflows.index')" logoClasses="h-10 w-auto" x-bind:class="collapsed && 'lg:hidden'"/>
+        <div class="flex items-center gap-2" :class="collapsed && 'lg:hidden'">
+            <x-layouts.logo :href="route('app.workflows.index')" logoClasses="h-10 w-auto"/>
+            @if ($isBusiness)
+                <span class="rounded-lg border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 font-mono text-[10px] font-extrabold text-amber-500">
+                    BUSINESS
+                </span>
+            @elseif ($isPro)
+                <span class="rounded-lg border border-primary/30 bg-primary/15 px-2 py-0.5 font-mono text-[10px] font-extrabold text-primary">
+                    PRO
+                </span>
+            @endif
+        </div>
 
         <a href="{{ route('app.workflows.index') }}"
            aria-label="{{ 'لوگو ' . config('app.site_name') }}"
@@ -90,36 +113,102 @@
             :count="$totalCredentials">
             اعتبارنامه‌ها
         </x-dashboard.sidebar-link>
+
+        @if ($saasEnabled && $summary)
+            <x-dashboard.sidebar-link
+                icon="credit-card"
+                :href="route('app.billing.index')"
+                :active="request()->routeIs('app.billing.*')"
+                :badge="$summary['plan']->name">
+                اشتراک و صورتحساب
+            </x-dashboard.sidebar-link>
+        @endif
     </nav>
 
     <div class="shrink-0 space-y-3 border-t border-line-border/70 p-3">
-        <div :class="collapsed && 'lg:hidden'"
-             class="rounded-2xl border border-line-border/80 bg-surface-card p-3.5 shadow-2xs">
-            <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-content-main">ظرفیت ورکفلوها</span>
-                <span class="font-mono text-[11px] font-bold tabular-nums text-content-muted" dir="ltr">
-                    {{ $totalWorkflows }} / {{ $maxWorkflows }}
-                </span>
-            </div>
+        @if ($saasEnabled && $summary)
+            <div :class="collapsed && 'lg:hidden'"
+                @class([
+                    'rounded-2xl border p-3.5 shadow-2xs',
+                    'border-amber-500/35 bg-linear-to-b from-amber-500/10 to-surface-card' => $isBusiness,
+                    'border-primary/30 bg-linear-to-b from-primary/8 to-surface-card' => $isPro,
+                    'border-line-border/80 bg-surface-card' => ! $isPro && ! $isBusiness,
+                ])>
+                <div class="flex items-center justify-between text-xs">
+                    <span class="flex items-center gap-1.5 font-bold text-content-main">
+                        <x-ui.icon name="crown" @class([
+                            'size-4',
+                            'text-amber-500' => $isBusiness,
+                            'text-primary' => ! $isBusiness,
+                        ])/>
+                        <span>پلن {{ $summary['plan']->name }}</span>
+                    </span>
+                    <a href="{{ route('app.billing.index') }}"
+                        @class([
+                            'text-[11px] font-bold hover:underline',
+                            'text-amber-500' => $isBusiness,
+                            'text-primary' => ! $isBusiness,
+                        ])>
+                        {{ $isBusiness ? 'وضعیت اشتراک' : 'ارتقا پلن' }}
+                    </a>
+                </div>
 
-            <div class="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-line-border/70">
-                <div @class([
-                        'h-full rounded-full transition-all duration-300',
-                        'bg-primary' => $usagePercent >= 90,
-                        'bg-amber-500' => $usagePercent >= 70 && $usagePercent < 90,
-                        'bg-emerald-500' => $usagePercent < 70,
-                    ])
-                     style="width: {{ $usagePercent }}%"></div>
-            </div>
+                <div class="mt-2.5 flex items-center justify-between text-[11px] text-content-muted">
+                    <span>مصرف ماهانه</span>
+                    <span class="font-mono font-bold tabular-nums text-content-main" dir="ltr">
+                        {{ number_format($summary['runs_used']) }} / {{ $summary['max_runs'] !== null ? number_format($summary['max_runs']) : '∞' }}
+                    </span>
+                </div>
 
-            <div class="mt-2.5 flex items-center justify-between text-[11px] text-content-muted">
-                <span class="flex items-center gap-1.5">
-                    <span class="size-1.5 rounded-full {{ $activeWorkflows > 0 ? 'bg-emerald-500' : 'bg-content-muted/50' }}"></span>
-                    <span>{{ $activeWorkflows }} ورکفلو فعال</span>
-                </span>
-                <span>{{ $totalCredentials }} کلید متصل</span>
+                <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-line-border/70">
+                    <div @class([
+                            'h-full rounded-full transition-all duration-300',
+                            'bg-primary' => $summary['runs_percent'] >= 90,
+                            'bg-amber-500' => $summary['runs_percent'] >= 70 && $summary['runs_percent'] < 90,
+                            'bg-emerald-500' => $summary['runs_percent'] < 70,
+                        ])
+                         style="width: {{ $summary['runs_percent'] }}%"></div>
+                </div>
+
+                <div class="mt-2.5 flex items-center justify-between text-[11px] text-content-muted">
+                    <span class="flex items-center gap-1.5">
+                        <span class="size-1.5 rounded-full {{ $activeWorkflows > 0 ? 'bg-emerald-500' : 'bg-content-muted/50' }}"></span>
+                        <span>ورک‌فلو فعال:</span>
+                    </span>
+                    <span class="font-mono font-bold tabular-nums text-content-main" dir="ltr">
+                        {{ $activeWorkflows }} / {{ $maxActiveWorkflows !== null ? $maxActiveWorkflows : '∞' }}
+                    </span>
+                </div>
             </div>
-        </div>
+        @else
+            <div :class="collapsed && 'lg:hidden'"
+                 class="rounded-2xl border border-line-border/80 bg-surface-card p-3.5 shadow-2xs">
+                <div class="flex items-center justify-between text-xs">
+                    <span class="font-bold text-content-main">ظرفیت ورکفلوها</span>
+                    <span class="font-mono text-[11px] font-bold tabular-nums text-content-muted" dir="ltr">
+                        {{ $totalWorkflows }} / {{ $maxWorkflows ?? '∞' }}
+                    </span>
+                </div>
+
+                <div class="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-line-border/70">
+                    <div @class([
+                            'h-full rounded-full transition-all duration-300',
+                            'bg-primary' => $usagePercent >= 90,
+                            'bg-amber-500' => $usagePercent >= 70 && $usagePercent < 90,
+                            'bg-emerald-500' => $usagePercent < 70,
+                        ])
+                         style="width: {{ $usagePercent }}%"></div>
+                </div>
+
+                <div class="mt-2.5 flex items-center justify-between text-[11px] text-content-muted">
+                    <span class="flex items-center gap-1.5">
+                        <span class="size-1.5 rounded-full {{ $activeWorkflows > 0 ? 'bg-emerald-500' : 'bg-content-muted/50' }}"></span>
+                        <span>{{ $activeWorkflows }} ورکفلو فعال</span>
+                    </span>
+                    <span>{{ $totalCredentials }} کلید متصل</span>
+                </div>
+            </div>
+        @endif
 
         @if ($user)
             <div class="flex items-center justify-between gap-2.5 rounded-xl bg-surface-card/60 p-2"
@@ -130,7 +219,11 @@
                              alt="{{ $user->name }}"
                              class="size-9 shrink-0 rounded-xl object-cover ring-1 ring-line-border">
                     @else
-                        <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 font-mono text-xs font-bold text-primary ring-1 ring-primary/20">
+                        <span @class([
+                            'flex size-9 shrink-0 items-center justify-center rounded-xl font-mono text-xs font-bold ring-1',
+                            'bg-amber-500/15 text-amber-500 ring-amber-500/30' => $isBusiness,
+                            'bg-primary/15 text-primary ring-primary/20' => ! $isBusiness,
+                        ])>
                             <span data-initial="{{ mb_substr($user->name, 0, 1) }}"
                                   x-text="$store.userProfile?.name ? $store.userProfile.name.slice(0, 1) : $el.dataset.initial">
                                 {{ mb_substr($user->name, 0, 1) }}

@@ -6,6 +6,8 @@ use App\Credentials\CredentialResolver;
 use App\Jobs\RunWorkflowJob;
 use App\Models\Node;
 use App\Models\Workflow;
+use App\Subscriptions\SubscriptionManager;
+use App\Workflow\Exceptions\QuotaExceededException;
 use App\Workflow\Nodes\Triggers\WebhookTriggerNode;
 use App\Workflow\Runner\WorkflowRunner;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +19,7 @@ class WebhookTriggerController extends Controller
 {
     public function __construct(
         private readonly CredentialResolver $credentials,
+        private readonly SubscriptionManager $subscriptions,
     ) {}
 
     public function test(Request $request, string $path): JsonResponse
@@ -37,7 +40,7 @@ class WebhookTriggerController extends Controller
 
         return response()->json([
             'message' => (string) ($trigger->config['response_body'] ?? 'Test webhook received'),
-            'data'    => $payload,
+            'data' => $payload,
         ], $this->statusCode($trigger));
     }
 
@@ -50,6 +53,12 @@ class WebhookTriggerController extends Controller
         }
 
         [$workflow, $trigger, $payload] = $resolved;
+
+        $workflow->loadMissing('user');
+
+        if (! $workflow->user || ! $this->subscriptions->hasRunQuota($workflow->user)) {
+            return $this->fail(429, 'سقف اجرای ماهانه این ورکفلو به پایان رسیده است.');
+        }
 
         $statusCode = $this->statusCode($trigger);
 
@@ -64,6 +73,8 @@ class WebhookTriggerController extends Controller
                 }
 
                 return response()->json($run->lastFlowNodeRun($workflow)?->output_data ?? ['ok' => true], $statusCode);
+            } catch (QuotaExceededException $e) {
+                return $this->fail(429, $e->getMessage());
             } catch (Throwable $e) {
                 report($e);
 
@@ -71,7 +82,7 @@ class WebhookTriggerController extends Controller
             }
         }
 
-        RunWorkflowJob::dispatch($workflow->id, $payload);
+        RunWorkflowJob::dispatchSmart($workflow->id, $payload);
 
         $message = trim((string) ($trigger->config['response_body'] ?? 'Workflow was started'));
 
@@ -183,12 +194,12 @@ class WebhookTriggerController extends Controller
         }
 
         return [
-            'headers'   => $headers,
-            'query'     => $request->query(),
-            'body'      => $body,
-            'method'    => $request->method(),
-            'path'      => $path,
-            'ip'        => $request->ip(),
+            'headers' => $headers,
+            'query' => $request->query(),
+            'body' => $body,
+            'method' => $request->method(),
+            'path' => $path,
+            'ip' => $request->ip(),
             'chatInput' => is_string($body['chatInput'] ?? null)
                 ? $body['chatInput']
                 : json_encode($body ?: $request->query(), JSON_UNESCAPED_UNICODE),

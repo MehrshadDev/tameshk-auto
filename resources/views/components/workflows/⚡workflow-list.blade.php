@@ -4,6 +4,7 @@ use App\Models\Edge;
 use App\Models\User;
 use App\Models\Workflow;
 use App\Models\WorkflowRun;
+use App\Subscriptions\SubscriptionManager;
 use App\Workflow\Exceptions\WorkflowPublishException;
 use App\Workflow\Publishing\WorkflowPublisher;
 use App\Workflow\Registry\NodeRegistry;
@@ -196,7 +197,7 @@ new class extends Component {
 
         RateLimiter::hit($rateKey);
 
-        $maxAllowed = (int) config('workflow.max_per_user', 50);
+        $maxAllowed = $this->maxTotalWorkflows ?? 200;
 
         $cleanIds = collect($orderedIds)
             ->filter(fn ($id) => is_int($id) || (is_string($id) && ctype_digit($id)))
@@ -400,6 +401,18 @@ new class extends Component {
     }
 
     #[Computed]
+    public function maxTotalWorkflows(): ?int
+    {
+        return app(SubscriptionManager::class)->maxTotalWorkflows(auth()->user());
+    }
+
+    #[Computed]
+    public function maxActiveWorkflows(): ?int
+    {
+        return app(SubscriptionManager::class)->maxActiveWorkflows(auth()->user());
+    }
+
+    #[Computed]
     public function totalRunsCount(): int
     {
         return WorkflowRun::query()
@@ -430,7 +443,9 @@ new class extends Component {
     #[Computed]
     public function atLimit(): bool
     {
-        return $this->total >= config('workflow.max_per_user');
+        $max = $this->maxTotalWorkflows;
+
+        return $max !== null && $this->total >= $max;
     }
 
     #[Computed]
@@ -461,8 +476,9 @@ new class extends Component {
 <div class="mx-auto max-w-6xl space-y-6 p-4 sm:p-6">
     <x-workflows.stats
         :total="$this->total"
-        :max="(int) config('workflow.max_per_user', 10)"
+        :max="$this->maxTotalWorkflows"
         :active="$this->activeCount"
+        :max-active="$this->maxActiveWorkflows"
         :runs="$this->totalRunsCount"
         :success-rate="$this->successRate"
     />

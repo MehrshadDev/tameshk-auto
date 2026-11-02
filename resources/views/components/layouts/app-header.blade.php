@@ -1,10 +1,10 @@
 @php
-    $links = [
+    $links = array_values(array_filter([
         ['label' => 'قابلیت‌ها', 'href' => '#'],
         ['label' => 'اتوماسیون‌ها', 'href' => '#'],
-        ['label' => 'تعرفه‌ها', 'href' => '#'],
+        config('saas.enabled') ? ['label' => 'تعرفه‌ها', 'href' => '#pricing'] : null,
         ['label' => 'مستندات', 'href' => '#'],
-    ];
+    ]));
 @endphp
 
 <header

@@ -5,6 +5,7 @@ namespace App\Workflow\Publishing;
 use App\Models\Credential;
 use App\Models\Node;
 use App\Models\Workflow;
+use App\Subscriptions\SubscriptionManager;
 use App\Workflow\Contracts\PublishableTriggerContract;
 use App\Workflow\Contracts\WebhookTriggerContract;
 use App\Workflow\Enums\HandleType;
@@ -20,6 +21,7 @@ final class WorkflowPublisher
         private readonly NodeRegistry $registry,
         private readonly NodeConfigValidator $validator,
         private readonly TriggerEndpoints $endpoints,
+        private readonly SubscriptionManager $subscriptions,
     ) {}
 
     public static function secretFor(Workflow $workflow): string
@@ -29,6 +31,7 @@ final class WorkflowPublisher
 
     public function publish(Workflow $workflow): void
     {
+        $this->subscriptions->assertCanActivateWorkflow($workflow);
         $this->activateTrigger($workflow);
 
         $workflow->update([
@@ -54,6 +57,7 @@ final class WorkflowPublisher
         }
 
         if ($active) {
+            $this->subscriptions->assertCanActivateWorkflow($workflow);
             $this->activateTrigger($workflow);
         } else {
             $this->deactivateTrigger($workflow);

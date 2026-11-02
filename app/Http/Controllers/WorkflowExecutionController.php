@@ -6,6 +6,7 @@ use App\Models\Node;
 use App\Models\NodeRun;
 use App\Models\Workflow;
 use App\Workflow\Exceptions\NodeExecutionException;
+use App\Workflow\Exceptions\QuotaExceededException;
 use App\Workflow\Runner\WorkflowRunner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -61,6 +62,11 @@ class WorkflowExecutionController extends Controller
 
         try {
             $run = $runner->run($workflow, $request->input('data', []));
+        } catch (QuotaExceededException $e) {
+            return response()->json([
+                'message' => $this->safeErrorMessage($e),
+                'error' => $this->safeErrorMessage($e),
+            ], 429);
         } catch (Throwable) {
             $run = $workflow->runs()->latest()->with('nodeRuns')->first();
         }
@@ -78,8 +84,13 @@ class WorkflowExecutionController extends Controller
 
         try {
             $nodeRun = $runner->runSingleNode($workflow, $node);
+        } catch (QuotaExceededException $e) {
+            return response()->json([
+                'message' => $this->safeErrorMessage($e),
+                'error' => $this->safeErrorMessage($e),
+            ], 429);
         } catch (Throwable $e) {
-            Log::error("Workflow single node execution failed: " . $e->getMessage(), [
+            Log::error('Workflow single node execution failed: ' . $e->getMessage(), [
                 'node_id' => $node->id,
             ]);
 

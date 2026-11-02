@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Workflow;
+use App\Workflow\Exceptions\QuotaExceededException;
 use App\Workflow\Runner\WorkflowRunner;
 use App\Workflow\Support\ChatReply;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -29,7 +30,7 @@ class ChatWebhookController extends Controller
                 'initialMessage' => $this->text($config, 'initial_message', ''),
                 'pendingText' => 'در حال نوشتن...',
                 'errorText' => 'مشکلی پیش آمد. لطفاً دوباره تلاش کنید.',
-                'rateLimitText' => 'تعداد پیام‌ها زیاد است. کمی صبر کنید.',
+                'rateLimitText' => 'تعداد پیام‌ها زیاد است یا سهمیه چت به پایان رسیده است.',
                 'emptyText' => 'پاسخی دریافت نشد.',
             ],
         ]);
@@ -63,6 +64,8 @@ class ChatWebhookController extends Controller
                 : '';
 
             return response()->json(['reply' => $reply]);
+        } catch (QuotaExceededException) {
+            return response()->json(['message' => 'Quota exceeded.'], 429);
         } catch (Throwable $e) {
             report($e);
 
