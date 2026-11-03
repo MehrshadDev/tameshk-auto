@@ -9,6 +9,7 @@ use App\Workflow\Exceptions\WorkflowPublishException;
 use App\Workflow\Publishing\WorkflowPublisher;
 use App\Workflow\Registry\NodeRegistry;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Computed;
@@ -74,9 +75,17 @@ new class extends Component {
 
     public function create(): void
     {
-        $key = 'workflow-create:' . auth()->id();
+        $userId = auth()->id();
+        $debounceKey = "workflow-create-lock:$userId";
+
+        if (! Cache::add($debounceKey, true, 3)) {
+            return;
+        }
+
+        $key = 'workflow-create:' . $userId;
 
         if (RateLimiter::tooManyAttempts($key, config('workflow.create_per_minute', 10))) {
+            Cache::forget($debounceKey);
             $this->notify('درخواست‌های زیادی فرستادی. یک دقیقه صبر کن.', 'error');
 
             return;
@@ -85,32 +94,39 @@ new class extends Component {
         RateLimiter::hit($key);
 
         try {
-            DB::transaction(function () {
-                $user = User::query()->whereKey(auth()->id())->lockForUpdate()->firstOrFail();
+            $workflow = DB::transaction(function () use ($userId) {
+                $user = User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
 
                 $this->authorize('create', Workflow::class);
 
-                $user->workflows()->create([
+                return $user->workflows()->create([
                     'name' => 'ورکفلو بدون عنوان',
                     'settings' => ['sort_order' => '000000'],
                 ]);
             });
         } catch (AuthorizationException $e) {
+            Cache::forget($debounceKey);
             $this->notify($e->getMessage(), 'error');
 
             return;
         }
 
-        $this->clearFilters();
-        unset($this->workflows, $this->total, $this->activeCount);
-        $this->notify('ورکفلو جدید ساخته شد.');
+        $this->redirectRoute('app.workflows.show', ['workflow' => $workflow]);
     }
 
     public function duplicate(int $id): void
     {
-        $key = 'workflow-create:' . auth()->id();
+        $userId = auth()->id();
+        $debounceKey = "workflow-dup-lock:$userId";
+
+        if (! Cache::add($debounceKey, true, 3)) {
+            return;
+        }
+
+        $key = 'workflow-create:' . $userId;
 
         if (RateLimiter::tooManyAttempts($key, config('workflow.create_per_minute', 10))) {
+            Cache::forget($debounceKey);
             $this->notify('درخواست‌های زیادی فرستادی. یک دقیقه صبر کن.', 'error');
 
             return;
@@ -122,8 +138,8 @@ new class extends Component {
         $this->authorize('view', $source);
 
         try {
-            DB::transaction(function () use ($source) {
-                $user = User::query()->whereKey(auth()->id())->lockForUpdate()->firstOrFail();
+            DB::transaction(function () use ($source, $userId) {
+                $user = User::query()->whereKey($userId)->lockForUpdate()->firstOrFail();
 
                 $this->authorize('create', Workflow::class);
 
@@ -176,6 +192,7 @@ new class extends Component {
                 }
             });
         } catch (AuthorizationException $e) {
+            Cache::forget($debounceKey);
             $this->notify($e->getMessage(), 'error');
 
             return;
@@ -483,51 +500,11 @@ new class extends Component {
         :success-rate="$this->successRate"
     />
 
-    <div class="flex flex-col gap-3 rounded-2xl border border-line-border bg-surface-card p-3 shadow-2xs sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex flex-1 flex-col gap-2.5 sm:flex-row sm:items-center">
-            <div class="relative flex-1">
-                <x-ui.icon name="search"
-                           class="pointer-events-none absolute inset-s-3.5 top-1/2 size-4.5 -translate-y-1/2 text-content-muted"/>
-                <input type="text"
-                       maxlength="100"
-                       wire:model.live.debounce.300ms="search"
-                       placeholder="جستجو در نام و توضیحات ورکفلو..."
-                       class="w-full rounded-xl border border-line-border bg-surface-base py-2 pe-9 ps-10 text-xs font-medium text-content-main transition placeholder:text-content-muted/60 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
-                @if ($search !== '')
-                    <button type="button"
-                            wire:click="$set('search', '')"
-                            aria-label="پاک کردن جستجو"
-                            class="absolute inset-e-2.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-lg text-content-muted transition hover:bg-line-border/60 hover:text-content-main cursor-pointer">
-                        <x-ui.icon name="x" class="size-3.5"/>
-                    </button>
-                @endif
-            </div>
-
-            <div class="flex items-center gap-1 rounded-xl border border-line-border bg-surface-base p-1">
-                @foreach (['all' => 'همه', 'active' => 'فعال', 'inactive' => 'غیرفعال'] as $key => $label)
-                    <button type="button"
-                            @if ($status !== $key) wire:click="setStatus('{{ $key }}')" @endif
-                        @class([
-                            'flex-1 rounded-lg px-3.5 py-1.5 text-xs transition sm:flex-none',
-                            'cursor-default bg-primary text-white font-bold shadow-2xs' => $status === $key,
-                            'cursor-pointer font-medium text-content-muted hover:text-content-main' => $status !== $key,
-                        ])>
-                        {{ $label }}
-                    </button>
-                @endforeach
-            </div>
-        </div>
-
-        <x-ui.button type="button"
-                     wire:click="create"
-                     wire:loading.attr="disabled"
-                     wire:target="create"
-                     :disabled="$this->atLimit"
-                     class="cursor-pointer shrink-0">
-            <x-ui.icon name="plus" class="size-4"/>
-            <span>ورکفلو جدید</span>
-        </x-ui.button>
-    </div>
+    <x-workflows.toolbar
+        :search="$search"
+        :status="$status"
+        :at-limit="$this->atLimit"
+    />
 
     <div x-data="{
              draggingId: null,
@@ -601,11 +578,11 @@ new class extends Component {
                     </x-ui.empty-state>
                 @else
                     <x-ui.empty-state icon="hierarchy-2"
-                                      title="هنوز ورکفلویی نساخته‌اید"
-                                      description="اولین ورکفلوی خود را بسازید و فرآیندهای تکراری، ربات‌ها و هوش مصنوعی را به هم متصل کنید.">
+                                      title="هنوز ورکفلویی نساخته‌اید">
                         <x-ui.button type="button" wire:click="create" wire:loading.attr="disabled" wire:target="create" class="cursor-pointer">
                             <x-ui.icon name="plus" class="size-4"/>
-                            ساخت اولین ورکفلو
+                            <span wire:loading.remove wire:target="create">ساخت اولین ورکفلو</span>
+                            <span wire:loading wire:target="create">در حال ساخت...</span>
                         </x-ui.button>
                     </x-ui.empty-state>
                 @endif

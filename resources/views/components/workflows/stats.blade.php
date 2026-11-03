@@ -1,6 +1,6 @@
 @props([
     'total' => 0,
-    'max' => 10,
+    'max' => null,
     'active' => 0,
     'maxActive' => null,
     'runs' => 0,
@@ -18,6 +18,8 @@
                 <span class="font-mono text-lg font-extrabold tabular-nums text-content-main">{{ $total }}</span>
                 @if ($max !== null)
                     <span class="text-[11px] text-content-muted">از {{ $max }}</span>
+                @else
+                    <span class="text-[11px] text-content-muted">ورکفلو</span>
                 @endif
             </div>
         </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\AvatarStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -156,7 +157,7 @@ class GoogleAuthController extends Controller
         $googleId = trim((string) data_get($data, 'sub'));
         $rawEmail = trim((string) data_get($data, 'email'));
         $name = trim(strip_tags((string) data_get($data, 'name', '')));
-        $avatar = data_get($data, 'picture');
+        $remotePicture = data_get($data, 'picture');
 
         if (empty($googleId) || empty($rawEmail) || ! filter_var($rawEmail, FILTER_VALIDATE_EMAIL)) {
             abort(400, 'اطلاعات دریافت شده از گوگل نامعتبر است.');
@@ -171,9 +172,13 @@ class GoogleAuthController extends Controller
         $user = User::query()->where('google_id', $googleId)->first();
 
         if ($user) {
-            if ($avatar && empty($user->avatar)) {
-                $user->update(['avatar' => $avatar]);
+            if ($remotePicture && ($user->avatarUrl() === null)) {
+                $storedAvatar = AvatarStorage::downloadAndStore($remotePicture, $user->avatar);
+                if ($storedAvatar !== $user->avatar) {
+                    $user->update(['avatar' => $storedAvatar]);
+                }
             }
+
             return $user;
         }
 
@@ -182,8 +187,11 @@ class GoogleAuthController extends Controller
         if ($user) {
             $updateData = ['google_id' => $googleId];
 
-            if ($avatar && empty($user->avatar)) {
-                $updateData['avatar'] = $avatar;
+            if ($remotePicture && ($user->avatarUrl() === null)) {
+                $storedAvatar = AvatarStorage::downloadAndStore($remotePicture, $user->avatar);
+                if ($storedAvatar) {
+                    $updateData['avatar'] = $storedAvatar;
+                }
             }
 
             if (! $user->email_verified_at) {
@@ -195,11 +203,13 @@ class GoogleAuthController extends Controller
             return $user;
         }
 
+        $storedAvatar = AvatarStorage::downloadAndStore($remotePicture);
+
         return User::create([
             'name' => mb_substr($name, 0, 50),
             'email' => $email,
             'google_id' => $googleId,
-            'avatar' => $avatar,
+            'avatar' => $storedAvatar,
             'password' => Hash::make(Str::random(32)),
             'email_verified_at' => now(),
         ]);

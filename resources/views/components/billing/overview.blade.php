@@ -75,24 +75,35 @@
                     <span class="text-xs font-bold text-content-main">اجراهای ماهانه</span>
                 </div>
 
-                <span class="font-mono text-xs font-extrabold tabular-nums text-content-main" dir="ltr">
-                    {{ number_format($runsUsed) }} / {{ $maxRuns !== null ? number_format($maxRuns) : '∞' }}
-                </span>
+                @if ($maxRuns !== null)
+                    <span class="font-mono text-xs font-extrabold tabular-nums text-content-main" dir="ltr">
+                        {{ number_format($runsUsed) }} / {{ number_format($maxRuns) }}
+                    </span>
+                @else
+                    <x-ui.badge variant="info">نامحدود</x-ui.badge>
+                @endif
             </div>
 
-            <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-line-border/70">
-                <div @class([
-                        'h-full rounded-full transition-all duration-300',
-                        'bg-primary' => $runsPercent >= 90,
-                        'bg-amber-500' => $runsPercent >= 75 && $runsPercent < 90,
-                        'bg-sky-500' => $runsPercent < 75,
-                    ])
-                     style="width: {{ $runsPercent }}%"></div>
-            </div>
+            @if ($maxRuns !== null)
+                <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-line-border/70">
+                    <div @class([
+                            'h-full rounded-full transition-all duration-300',
+                            'bg-primary' => $runsPercent >= 90,
+                            'bg-amber-500' => $runsPercent >= 75 && $runsPercent < 90,
+                            'bg-sky-500' => $runsPercent < 75,
+                        ])
+                         style="width: {{ $runsPercent }}%"></div>
+                </div>
+            @else
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span class="font-mono text-xl font-extrabold tabular-nums text-content-main">{{ number_format($runsUsed) }}</span>
+                    <span class="text-xs text-content-muted">اجرای ثبت‌شده در این دوره</span>
+                </div>
+            @endif
         </div>
 
         <div class="mt-4 flex items-center justify-between border-t border-line-border/60 pt-3.5 text-[11px] text-content-muted">
-            <span>بازنشانی سهمیه ماهانه:</span>
+            <span>بازنشانی شمارنده ماهانه:</span>
             <span class="font-medium text-content-main">
                 {{ $summary['runs_reset_at'] ? $summary['runs_reset_at']->diffForHumans() : '۳۰ روز دیگر' }}
             </span>
@@ -109,24 +120,31 @@
                     <span class="text-xs font-bold text-content-main">ورک‌فلوهای فعال همزمان</span>
                 </div>
 
-                <span class="font-mono text-xs font-extrabold tabular-nums text-content-main" dir="ltr">
-                    @if ($maxActiveWorkflows !== null)
+                @if ($maxActiveWorkflows !== null)
+                    <span class="font-mono text-xs font-extrabold tabular-nums text-content-main" dir="ltr">
                         {{ $activeWorkflows }} / {{ $maxActiveWorkflows }}
-                    @else
-                        {{ $activeWorkflows }} / ∞
-                    @endif
-                </span>
+                    </span>
+                @else
+                    <x-ui.badge variant="success">نامحدود</x-ui.badge>
+                @endif
             </div>
 
-            <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-line-border/70">
-                <div @class([
-                        'h-full rounded-full transition-all duration-300',
-                        'bg-primary' => $maxActiveWorkflows !== null && $activePercent >= 100,
-                        'bg-amber-500' => $maxActiveWorkflows !== null && $activePercent >= 75 && $activePercent < 100,
-                        'bg-emerald-500' => $maxActiveWorkflows === null || $activePercent < 75,
-                    ])
-                     style="width: {{ $activePercent }}%"></div>
-            </div>
+            @if ($maxActiveWorkflows !== null)
+                <div class="mt-4 h-2 w-full overflow-hidden rounded-full bg-line-border/70">
+                    <div @class([
+                            'h-full rounded-full transition-all duration-300',
+                            'bg-primary' => $activePercent >= 100,
+                            'bg-amber-500' => $activePercent >= 75 && $activePercent < 100,
+                            'bg-emerald-500' => $activePercent < 75,
+                        ])
+                         style="width: {{ $activePercent }}%"></div>
+                </div>
+            @else
+                <div class="mt-3 flex items-baseline gap-1.5">
+                    <span class="font-mono text-xl font-extrabold tabular-nums text-content-main">{{ $activeWorkflows }}</span>
+                    <span class="text-xs text-content-muted">ورک‌فلوی در حال اجرا</span>
+                </div>
+            @endif
         </div>
 
         <div class="mt-4 flex items-center justify-between border-t border-line-border/60 pt-3.5 text-[11px] text-content-muted">

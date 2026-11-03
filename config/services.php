@@ -38,5 +38,6 @@ return [
         'auth_base_url' => env('GOOGLE_AUTH_BASE_URL', 'https://accounts.google.com'),
         'oauth_base_url' => env('GOOGLE_OAUTH_BASE_URL', 'https://oauth2.googleapis.com'),
         'api_base_url' => env('GOOGLE_API_BASE_URL', 'https://www.googleapis.com'),
+        'avatar_base_url' => env('GOOGLE_AVATAR_BASE_URL', 'https://lh3.googleusercontent.com'),
     ],
 ];

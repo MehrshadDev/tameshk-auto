@@ -46,6 +46,7 @@
                  :disabled="$atLimit"
                  class="cursor-pointer shrink-0">
         <x-ui.icon name="plus" class="size-4"/>
-        <span>ورکفلو جدید</span>
+        <span wire:loading.remove wire:target="create">ورکفلو جدید</span>
+        <span wire:loading wire:target="create">در حال ساخت...</span>
     </x-ui.button>
 </div>

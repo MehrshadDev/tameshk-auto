@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\AvatarStorage;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -26,6 +27,11 @@ class User extends Authenticatable
             'runs_used' => 'integer',
             'runs_reset_at' => 'datetime',
         ];
+    }
+
+    public function avatarUrl(): ?string
+    {
+        return AvatarStorage::url($this->avatar);
     }
 
     public function workflows(): HasMany

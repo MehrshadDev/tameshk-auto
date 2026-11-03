@@ -7,6 +7,7 @@
     use App\Subscriptions\SubscriptionManager;
 
     $user = auth()->user();
+    $avatarUrl = $user?->avatarUrl();
     $activeCount = $user ? $user->workflows()->where('is_active', true)->count() : 0;
     $subscriptions = app(SubscriptionManager::class);
     $saasEnabled = $subscriptions->isSaasEnabled();
@@ -72,8 +73,8 @@
                             'border-primary/35 bg-linear-to-l from-primary/10 to-surface-card hover:border-primary/60' => $isPro,
                             'border-line-border bg-surface-card hover:border-content-muted/40' => ! $isPro && ! $isBusiness,
                         ])>
-                        @if ($user->avatar)
-                            <img src="{{ $user->avatar }}"
+                        @if ($avatarUrl)
+                            <img src="{{ $avatarUrl }}"
                                  alt="{{ $user->name }}"
                                 @class([
                                     'size-7 rounded-lg object-cover',
@@ -115,8 +116,8 @@
                 </x-slot:trigger>
 
                 <div class="mb-1.5 flex items-center gap-3 rounded-xl bg-surface-card/80 p-2.5">
-                    @if ($user->avatar)
-                        <img src="{{ $user->avatar }}" alt="{{ $user->name }}" class="size-10 shrink-0 rounded-xl object-cover ring-1 ring-line-border">
+                    @if ($avatarUrl)
+                        <img src="{{ $avatarUrl }}" alt="{{ $user->name }}" class="size-10 shrink-0 rounded-xl object-cover ring-1 ring-line-border">
                     @else
                         <span data-initial="{{ mb_substr($user->name, 0, 1) }}"
                               x-text="$store.userProfile?.name ? $store.userProfile.name.slice(0, 1).toUpperCase() : $el.dataset.initial"

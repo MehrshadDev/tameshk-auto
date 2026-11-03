@@ -8,8 +8,8 @@ use App\Workflow\DTOs\NodeDefinition;
 use App\Workflow\DTOs\NodeResult;
 use App\Workflow\Enums\NodeCategory;
 use App\Workflow\Exceptions\NodeExecutionException;
-use Illuminate\Support\Facades\Http;
 use App\Workflow\Support\TelegramApi;
+use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class TelegramNode implements NodeContract
@@ -256,68 +256,6 @@ class TelegramNode implements NodeContract
             'pin_message'     => $this->handlePinMessage($context, $botToken),
             default           => throw NodeExecutionException::because("عملیات تلگرام نامعتبر است: $operation"),
         };
-    }
-
-    private function handleSendPhoto(NodeContext $context, string $botToken): NodeResult
-    {
-        $chatId = trim((string) ($context->config['chat_id'] ?? ''));
-        $photo = trim((string) ($context->config['photo'] ?? ''));
-
-        if ($chatId === '') {
-            throw NodeExecutionException::because('شناسه چت مقصد الزامی است.');
-        }
-        if ($photo === '') {
-            throw NodeExecutionException::because('آدرس یا شناسه تصویر (Photo) الزامی است.');
-        }
-
-        $payload = [
-            'chat_id'              => $chatId,
-            'photo'                => $photo,
-            'caption'              => (string) ($context->config['caption'] ?? ''),
-            'disable_notification' => ((string) ($context->config['disable_notification'] ?? '0')) === '1',
-        ];
-
-        $payload = $this->applyMessageOptions($payload, $context);
-        $result = $this->request($botToken, 'sendPhoto', $payload);
-
-        return NodeResult::of([
-            'success'    => true,
-            'message_id' => data_get($result, 'message_id'),
-            'chat'       => data_get($result, 'chat'),
-            'caption'    => data_get($result, 'caption'),
-            'raw'        => $result,
-        ]);
-    }
-
-    private function handleSendDocument(NodeContext $context, string $botToken): NodeResult
-    {
-        $chatId = trim((string) ($context->config['chat_id'] ?? ''));
-        $document = trim((string) ($context->config['document'] ?? ''));
-
-        if ($chatId === '') {
-            throw NodeExecutionException::because('شناسه چت مقصد الزامی است.');
-        }
-        if ($document === '') {
-            throw NodeExecutionException::because('آدرس یا شناسه فایل (Document) الزامی است.');
-        }
-
-        $payload = [
-            'chat_id'              => $chatId,
-            'document'             => $document,
-            'caption'              => (string) ($context->config['caption'] ?? ''),
-            'disable_notification' => ((string) ($context->config['disable_notification'] ?? '0')) === '1',
-        ];
-
-        $payload = $this->applyMessageOptions($payload, $context);
-        $result = $this->request($botToken, 'sendDocument', $payload);
-
-        return NodeResult::of([
-            'success'    => true,
-            'message_id' => data_get($result, 'message_id'),
-            'chat'       => data_get($result, 'chat'),
-            'document'   => data_get($result, 'document'),
-            'raw'        => $result,
-        ]);
     }
 
     private function value(NodeContext $context, string $key): string

@@ -1,5 +1,6 @@
 @php
     $user = auth()->user();
+    $avatarUrl = $user?->avatarUrl();
 @endphp
 
 @if ($user)
@@ -61,8 +62,8 @@
               class="space-y-4">
 
             <div class="flex items-center gap-3.5 rounded-2xl border border-line-border/80 bg-surface-card p-3.5">
-                @if ($user->avatar)
-                    <img src="{{ $user->avatar }}" alt="{{ $user->name }}" class="size-11 shrink-0 rounded-xl object-cover ring-1 ring-line-border">
+                @if ($avatarUrl)
+                    <img src="{{ $avatarUrl }}" alt="{{ $user->name }}" class="size-11 shrink-0 rounded-xl object-cover ring-1 ring-line-border">
                 @else
                     <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-bold text-white shadow-xs shadow-primary/25"
                           x-text="(name || 'U').slice(0, 1).toUpperCase()">

@@ -238,7 +238,13 @@ final class SubscriptionManager
             return null;
         }
 
-        return $this->resolvePlan($user)->max_active_workflows;
+        $plan = $this->resolvePlan($user);
+
+        if ($plan->slug === 'business' || $plan->hasUnlimitedActiveWorkflows()) {
+            return null;
+        }
+
+        return $plan->max_active_workflows;
     }
 
     public function maxTotalWorkflows(User $user): ?int
@@ -251,11 +257,11 @@ final class SubscriptionManager
 
         $plan = $this->resolvePlan($user);
 
-        if ($plan->max_active_workflows === null) {
+        if ($plan->slug === 'business' || $plan->hasUnlimitedActiveWorkflows()) {
             return null;
         }
 
-        return max((int) config('workflow.max_per_user', 10), $plan->max_active_workflows * 5);
+        return max(1, (int) $plan->max_active_workflows) * 5;
     }
 
     public function maxMonthlyRuns(User $user): ?int
@@ -264,7 +270,13 @@ final class SubscriptionManager
             return null;
         }
 
-        return $this->resolvePlan($user)->max_monthly_runs;
+        $plan = $this->resolvePlan($user);
+
+        if ($plan->slug === 'business' || $plan->hasUnlimitedMonthlyRuns()) {
+            return null;
+        }
+
+        return $plan->max_monthly_runs;
     }
 
     public function syncUsageCycle(User $user): User
@@ -312,7 +324,7 @@ final class SubscriptionManager
             }
 
             $plan = $this->resolvePlan($lockedUser);
-            $maxRuns = $plan->max_monthly_runs;
+            $maxRuns = ($plan->slug === 'business' || $plan->hasUnlimitedMonthlyRuns()) ? null : $plan->max_monthly_runs;
 
             if ($maxRuns !== null && $lockedUser->runs_used >= $maxRuns) {
                 $lockedUser->saveQuietly();
@@ -343,7 +355,7 @@ final class SubscriptionManager
         DB::transaction(function () use ($user, $workflow) {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $plan = $this->resolvePlan($lockedUser);
-            $maxActive = $plan->max_active_workflows;
+            $maxActive = ($plan->slug === 'business' || $plan->hasUnlimitedActiveWorkflows()) ? null : $plan->max_active_workflows;
 
             if ($maxActive === null) {
                 return;
@@ -418,7 +430,7 @@ final class SubscriptionManager
 
     public function enforcePlanWorkflowLimits(User $user, Plan $plan): int
     {
-        if (! $this->isSaasEnabled() || $plan->max_active_workflows === null) {
+        if (! $this->isSaasEnabled() || $plan->slug === 'business' || $plan->max_active_workflows === null) {
             return 0;
         }
 
