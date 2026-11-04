@@ -8,6 +8,7 @@
 
     $user = auth()->user();
     $avatarUrl = $user?->avatarUrl();
+    $firstName = $user ? explode(' ', trim($user->name))[0] : '';
     $activeCount = $user ? $user->workflows()->where('is_active', true)->count() : 0;
     $subscriptions = app(SubscriptionManager::class);
     $saasEnabled = $subscriptions->isSaasEnabled();
@@ -67,25 +68,26 @@
             <x-ui.dropdown align="left" width="w-64">
                 <x-slot:trigger>
                     <button type="button"
+                            dir="ltr"
                         @class([
-                            'flex items-center gap-2 rounded-xl border p-1 pe-2.5 text-xs font-semibold text-content-main transition cursor-pointer',
-                            'border-amber-500/40 bg-linear-to-l from-amber-500/10 to-surface-card hover:border-amber-500/60' => $isBusiness,
-                            'border-primary/35 bg-linear-to-l from-primary/10 to-surface-card hover:border-primary/60' => $isPro,
+                            'flex items-center gap-2 rounded-xl border p-1 pr-2.5 text-xs font-semibold text-content-main transition cursor-pointer',
+                            'border-amber-500/40 bg-linear-to-r from-amber-500/10 to-surface-card hover:border-amber-500/60' => $isBusiness,
+                            'border-primary/35 bg-linear-to-r from-primary/10 to-surface-card hover:border-primary/60' => $isPro,
                             'border-line-border bg-surface-card hover:border-content-muted/40' => ! $isPro && ! $isBusiness,
                         ])>
                         @if ($avatarUrl)
                             <img src="{{ $avatarUrl }}"
                                  alt="{{ $user->name }}"
                                 @class([
-                                    'size-7 rounded-lg object-cover',
+                                    'size-7 shrink-0 rounded-lg object-cover',
                                     'ring-2 ring-amber-500' => $isBusiness,
                                     'ring-2 ring-primary' => $isPro,
                                 ])>
                         @else
                             <span data-initial="{{ mb_substr($user->name, 0, 1) }}"
-                                  x-text="$store.userProfile?.name ? $store.userProfile.name.slice(0, 1).toUpperCase() : $el.dataset.initial"
+                                  x-text="$store.userProfile?.name ? $store.userProfile.name.trim().slice(0, 1).toUpperCase() : $el.dataset.initial"
                                 @class([
-                                    'flex size-7 items-center justify-center rounded-lg font-mono text-xs font-bold text-white',
+                                    'flex size-7 shrink-0 items-center justify-center rounded-lg font-mono text-xs font-bold text-white',
                                     'bg-linear-to-br from-amber-400 to-orange-500' => $isBusiness,
                                     'bg-linear-to-br from-primary to-rose-500' => $isPro,
                                     'bg-primary' => ! $isPro && ! $isBusiness,
@@ -97,30 +99,29 @@
                         <span dir="auto"
                               data-name="{{ $user->name }}"
                               class="hidden max-w-28 truncate sm:block"
-                              x-text="$store.userProfile?.name || $el.dataset.name">{{ $user->name }}</span>
+                              x-text="($store.userProfile?.name || $el.dataset.name).trim().split(/\s+/)[0]">{{ $firstName }}</span>
 
-                        @if ($isBusiness)
-                            <span class="hidden items-center gap-1 rounded-md bg-amber-500/15 px-1.5 py-0.5 font-mono text-[10px] font-extrabold text-amber-500 sm:inline-flex">
-                                <x-ui.icon name="crown" class="size-3"/>
-                                <span>VIP</span>
-                            </span>
-                        @elseif ($isPro)
-                            <span class="hidden items-center gap-1 rounded-md bg-primary/15 px-1.5 py-0.5 font-mono text-[10px] font-extrabold text-primary sm:inline-flex">
-                                <x-ui.icon name="crown" class="size-3"/>
-                                <span>PRO</span>
+                        @if ($isBusiness || $isPro)
+                            <span dir="rtl"
+                                @class([
+                                    'hidden items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold sm:inline-flex',
+                                    'bg-amber-500/15 text-amber-500' => $isBusiness,
+                                    'bg-primary/15 text-primary' => $isPro,
+                                ])>
+                                {{ $currentPlan->name }}
                             </span>
                         @endif
 
-                        <x-ui.icon name="chevron-down" class="size-3.5 text-content-muted"/>
+                        <x-ui.icon name="chevron-down" class="size-3.5 shrink-0 text-content-muted"/>
                     </button>
                 </x-slot:trigger>
 
-                <div class="mb-1.5 flex items-center gap-3 rounded-xl bg-surface-card/80 p-2.5">
+                <div dir="ltr" class="mb-1.5 flex items-center gap-2.5 rounded-xl bg-surface-card/80 p-2.5 text-left">
                     @if ($avatarUrl)
                         <img src="{{ $avatarUrl }}" alt="{{ $user->name }}" class="size-10 shrink-0 rounded-xl object-cover ring-1 ring-line-border">
                     @else
                         <span data-initial="{{ mb_substr($user->name, 0, 1) }}"
-                              x-text="$store.userProfile?.name ? $store.userProfile.name.slice(0, 1).toUpperCase() : $el.dataset.initial"
+                              x-text="$store.userProfile?.name ? $store.userProfile.name.trim().slice(0, 1).toUpperCase() : $el.dataset.initial"
                             @class([
                                 'flex size-10 shrink-0 items-center justify-center rounded-xl font-mono text-xs font-bold ring-1',
                                 'bg-amber-500/15 text-amber-500 ring-amber-500/30' => $isBusiness,
@@ -134,19 +135,20 @@
                         <div class="flex items-center gap-1.5">
                             <p dir="auto"
                                data-name="{{ $user->name }}"
-                               class="truncate text-start text-xs font-bold text-content-main"
+                               class="truncate text-xs font-bold text-content-main"
                                x-text="$store.userProfile?.name || $el.dataset.name">{{ $user->name }}</p>
                             @if ($isBusiness || $isPro)
-                                <span @class([
-                                    'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold',
-                                    'bg-amber-500/15 text-amber-500' => $isBusiness,
-                                    'bg-primary/15 text-primary' => $isPro,
-                                ])>
+                                <span dir="rtl"
+                                    @class([
+                                        'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold',
+                                        'bg-amber-500/15 text-amber-500' => $isBusiness,
+                                        'bg-primary/15 text-primary' => $isPro,
+                                    ])>
                                     {{ $currentPlan->name }}
                                 </span>
                             @endif
                         </div>
-                        <p dir="ltr" class="mt-0.5 truncate text-left font-mono text-[10px] text-content-muted">{{ $user->email }}</p>
+                        <p class="mt-0.5 truncate font-mono text-[10px] text-content-muted">{{ $user->email }}</p>
                     </div>
                 </div>
 

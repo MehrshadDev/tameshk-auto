@@ -73,7 +73,7 @@
         @if ($workflow->description)
             <p dir="auto" class="mt-0.5 truncate text-start text-xs text-content-muted">{{ $workflow->description }}</p>
         @else
-            <p class="mt-0.5 truncate text-[11px] text-content-muted/60">
+            <p class="mt-0.5 truncate text-[11px] text-content-muted">
                 {{ $workflow->nodes->where('type', '!=', 'sticky_note')->count() }} نود • آخرین ویرایش {{ $workflow->updated_at->diffForHumans() }}
             </p>
         @endif
@@ -112,7 +112,7 @@
                 @endif
             </p>
         @else
-            <span class="text-xs text-content-muted/70">هنوز اجرا نشده</span>
+            <span class="text-xs text-content-muted">هنوز اجرا نشده</span>
         @endif
     </div>
 
@@ -136,7 +136,7 @@
             <x-slot:trigger>
                 <button type="button"
                         aria-label="گزینه‌ها"
-                        class="flex size-8.5 items-center justify-center rounded-xl border border-transparent text-content-muted transition hover:border-line-border hover:bg-surface-raised hover:text-content-main cursor-pointer">
+                        class="flex size-8.5 items-center justify-center rounded-xl text-content-muted transition hover:bg-line-border/60 hover:text-content-main in-[[aria-expanded=true]]:bg-line-border/60 in-[[aria-expanded=true]]:text-content-main focus:outline-none cursor-pointer">
                     <x-ui.icon name="dots-vertical" class="size-4.5"/>
                 </button>
             </x-slot:trigger>

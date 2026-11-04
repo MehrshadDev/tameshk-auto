@@ -85,7 +85,7 @@
                 {{ $run->error }}
             </p>
         @else
-            <p class="mt-1 truncate text-[11px] text-content-muted/70">
+            <p class="mt-1 truncate text-[11px] text-content-muted">
                 {{ $nodeRuns->count() }} مرحله ثبت‌شده • {{ $run->started_at?->diffForHumans() ?? '—' }}
             </p>
         @endif
@@ -119,7 +119,7 @@
     <div class="hidden shrink-0 items-center gap-3 lg:flex">
         @if ($duration !== null)
             <span dir="ltr" class="inline-flex items-center gap-1 rounded-lg border border-line-border/70 bg-surface-base px-2.5 py-1 font-mono text-[11px] font-semibold tabular-nums text-content-muted">
-                <x-ui.icon name="clock" class="size-3.5 text-content-muted/70"/>
+                <x-ui.icon name="clock" class="size-3.5 text-content-muted"/>
                 <span>{{ $duration }}s</span>
             </span>
         @endif
@@ -139,7 +139,7 @@
             <x-slot:trigger>
                 <button type="button"
                         aria-label="گزینه‌ها"
-                        class="flex size-8.5 items-center justify-center rounded-xl border border-transparent text-content-muted transition hover:border-line-border hover:bg-surface-raised hover:text-content-main cursor-pointer">
+                        class="flex size-8.5 items-center justify-center rounded-xl text-content-muted transition hover:bg-line-border/60 hover:text-content-main in-[[aria-expanded=true]]:bg-line-border/60 in-[[aria-expanded=true]]:text-content-main focus:outline-none cursor-pointer">
                     <x-ui.icon name="dots-vertical" class="size-4.5"/>
                 </button>
             </x-slot:trigger>

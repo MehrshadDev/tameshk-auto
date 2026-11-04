@@ -64,10 +64,7 @@
         @endif
 
         <div class="mt-2 flex items-center justify-between text-[11px] text-content-muted">
-            <span class="flex items-center gap-1.5">
-                <span class="size-1.5 rounded-full bg-emerald-500"></span>
-                <span>ورک‌فلو فعال:</span>
-            </span>
+            <span>ورک‌فلو فعال:</span>
             @if ($maxActiveWorkflows !== null)
                 <span class="font-mono font-bold tabular-nums text-content-main" dir="ltr">
                     {{ $activeWorkflows }} / {{ $maxActiveWorkflows }}
@@ -102,10 +99,7 @@
         @endif
 
         <div class="mt-2.5 flex items-center justify-between text-[11px] text-content-muted">
-            <span class="flex items-center gap-1.5">
-                <span class="size-1.5 rounded-full bg-emerald-500"></span>
-                <span>{{ $activeWorkflows }} ورکفلو فعال</span>
-            </span>
+            <span>{{ $activeWorkflows }} ورکفلو فعال</span>
             <span>{{ $totalCredentials }} کلید متصل</span>
         </div>
     </div>

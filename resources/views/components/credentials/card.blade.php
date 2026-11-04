@@ -46,7 +46,7 @@
                     {{ $connectedEmail }}
                 </span>
             @else
-                <span class="text-content-muted/70">ثبت‌شده {{ $credential->created_at->diffForHumans() }}</span>
+                <span class="text-content-muted">ثبت‌شده {{ $credential->created_at->diffForHumans() }}</span>
             @endif
         </div>
     </div>
@@ -58,7 +58,7 @@
                 <span>{{ $workflowsCount }} ورکفلو</span>
             </span>
         @else
-            <span class="text-xs text-content-muted/60">بدون ورکفلو</span>
+            <span class="text-xs text-content-muted">بدون ورکفلو</span>
         @endif
     </div>
 
@@ -68,9 +68,9 @@
                 <x-ui.icon name="clock" class="size-3.5 text-emerald-500"/>
                 <span>{{ $credential->last_used_at->diffForHumans() }}</span>
             </div>
-            <p class="mt-0.5 text-[11px] text-content-muted/70">آخرین استفاده در اجرا</p>
+            <p class="mt-0.5 text-[11px] text-content-muted">آخرین استفاده در اجرا</p>
         @else
-            <span class="text-xs text-content-muted/70">هنوز استفاده نشده</span>
+            <span class="text-xs text-content-muted">هنوز استفاده نشده</span>
         @endif
     </div>
 
@@ -96,7 +96,7 @@
             <x-slot:trigger>
                 <button type="button"
                         aria-label="گزینه‌ها"
-                        class="flex size-8.5 items-center justify-center rounded-xl border border-transparent text-content-muted transition hover:border-line-border hover:bg-surface-raised hover:text-content-main cursor-pointer">
+                        class="flex size-8.5 items-center justify-center rounded-xl text-content-muted transition hover:bg-line-border/60 hover:text-content-main in-[[aria-expanded=true]]:bg-line-border/60 in-[[aria-expanded=true]]:text-content-main focus:outline-none cursor-pointer">
                     <x-ui.icon name="dots-vertical" class="size-4.5"/>
                 </button>
             </x-slot:trigger>

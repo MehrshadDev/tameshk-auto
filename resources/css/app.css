@@ -41,12 +41,12 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-    --color-surface-base: #fafafa;
+    --color-surface-base: #F8FAFC;
     --color-surface-raised: #ffffff;
     --color-surface-card: #ffffff;
     --color-content-main: #0f172a;
     --color-content-muted: #64748b;
-    --color-line-border: #e2e8f0;
+    --color-line-border: #d5e0ea;
     --color-menu: #ffffff;
     --color-primary: #E21C48;
     --color-field: #ffffff;
@@ -82,7 +82,7 @@
     --color-content-muted: var(--color-content-muted);
     --color-line-border: var(--color-line-border);
     --color-menu: var(--color-menu);
-    --color-primary: var(--color-primary);
+    --color-primary: #E21C48;
     --color-field: var(--color-field);
 
     --animate-scroll-up: scrollUp 25s linear infinite;
