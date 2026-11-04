@@ -7,8 +7,8 @@
 
     $paths = [
         ['d' => 'M110 175 L350 175', 'dur' => '2.4s', 'begin' => '0s'],
-        ['d' => 'M350 175 C500 175 520 55 690 55', 'dur' => '2.2s', 'begin' => '.8s'],
-        ['d' => 'M350 175 C500 175 520 295 690 295', 'dur' => '2.2s', 'begin' => '1.6s'],
+        ['d' => 'M350 175 C500 175 520 55 690 55', 'dur' => '2.2s', 'begin' => '-0.8s'],
+        ['d' => 'M350 175 C500 175 520 295 690 295', 'dur' => '2.2s', 'begin' => '-1.6s'],
     ];
 @endphp
 
@@ -40,7 +40,7 @@
             <x-ui.button href="/register" size="lg" class="shadow-lg shadow-primary/25 transition-transform hover:scale-[1.03]">
                 شروع رایگان
             </x-ui.button>
-            <x-ui.button href="#" variant="secondary" size="lg" class="backdrop-blur transition hover:bg-surface-card">
+            <x-ui.button :href="route('docs.index')" variant="secondary" size="lg" class="backdrop-blur transition hover:bg-surface-card">
                 مشاهده مستندات
             </x-ui.button>
         </div>

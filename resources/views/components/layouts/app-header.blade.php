@@ -3,7 +3,7 @@
         ['label' => 'قابلیت‌ها', 'href' => '#'],
         ['label' => 'اتوماسیون‌ها', 'href' => '#'],
         config('saas.enabled') ? ['label' => 'تعرفه‌ها', 'href' => '#pricing'] : null,
-        ['label' => 'مستندات', 'href' => '#'],
+        ['label' => 'مستندات', 'href' => route('docs.index')],
     ]));
 @endphp
 
@@ -39,21 +39,10 @@
             @click="open = !open"
             :aria-expanded="open"
             aria-label="منو"
-            class="rounded-lg p-2 text-content-muted transition-colors hover:bg-surface-base hover:text-content-main md:hidden"
+            class="flex size-9 items-center justify-center rounded-lg text-content-muted transition-colors hover:bg-surface-base hover:text-content-main md:hidden"
         >
-            <svg
-                class="h-6 w-6"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-            >
-                <path x-show="!open" d="M4 7h16M4 12h16M4 17h16" />
-                <path x-show="open" x-cloak d="M6 6l12 12M18 6L6 18" />
-            </svg>
+            <x-ui.icon name="menu-2" x-show="!open" class="size-6"/>
+            <x-ui.icon name="x" x-show="open" x-cloak class="size-6"/>
         </button>
     </div>
 

@@ -14,6 +14,7 @@ use App\Http\Controllers\WorkflowPublishController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
+use App\Http\Controllers\DocsController;
 
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
@@ -24,6 +25,9 @@ Route::get('/oauth/google/callback', [GoogleOAuthController::class, 'callback'])
 Route::get('/billing/callback', [BillingController::class, 'callback'])
     ->middleware('throttle:30,1')
     ->name('billing.callback');
+
+Route::get('/docs', [DocsController::class, 'show'])->name('docs.index');
+Route::get('/docs/{slug}', [DocsController::class, 'show'])->name('docs.show');
 
 Route::middleware('guest')->group(function () {
     Route::view('/login', 'pages.auth.login')->name('login');

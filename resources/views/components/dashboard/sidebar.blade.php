@@ -123,6 +123,13 @@
                 اشتراک و صورتحساب
             </x-dashboard.sidebar-link>
         @endif
+
+        <x-dashboard.sidebar-link
+            icon="file-text"
+            :href="route('docs.index')"
+            :active="request()->routeIs('docs.*')">
+            مستندات و آموزش
+        </x-dashboard.sidebar-link>
     </nav>
 
     <div class="shrink-0 space-y-3 border-t border-line-border/70 p-3">
