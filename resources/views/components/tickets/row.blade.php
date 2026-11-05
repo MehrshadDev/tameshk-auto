@@ -58,16 +58,16 @@
         </div>
     </div>
 
-    <div class="hidden shrink-0 items-center gap-3 md:flex">
+    <div class="hidden shrink-0 items-center gap-3.5 md:flex">
         <x-ui.badge :variant="$ticket->priority->badgeVariant()">
             {{ $ticket->priority->label() }}
         </x-ui.badge>
 
-        <div class="w-32 text-end">
-            <p class="font-mono text-[11px] font-semibold text-content-main" dir="ltr">{{ $persianDate }}</p>
-            <p class="mt-0.5 text-[10px] text-content-muted">
+        <div class="flex flex-col items-start">
+            <span dir="ltr" class="font-mono text-[11px] font-semibold text-content-main">{{ $persianDate }}</span>
+            <span class="mt-0.5 text-[10px] text-content-muted">
                 {{ $ticket->messages_count ?? 1 }} پیام • {{ ($ticket->last_reply_at ?? $ticket->created_at)?->diffForHumans() }}
-            </p>
+            </span>
         </div>
     </div>
 

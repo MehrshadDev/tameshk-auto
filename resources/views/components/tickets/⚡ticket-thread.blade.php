@@ -175,21 +175,20 @@ new class extends Component {
         $userId = auth()->id();
         $lockKey = "ticket-status-lock:{$userId}:{$ticketId}";
 
-        if (!Cache::add($lockKey, true, 3)) {
+        if (! Cache::add($lockKey, true, 1)) {
             return false;
         }
 
         $rateKey = "ticket-status-toggle:{$userId}:{$ticketId}";
 
-        if (RateLimiter::tooManyAttempts($rateKey, 2)) {
-            $seconds = RateLimiter::availableIn($rateKey);
-            $minutes = max(1, (int)ceil($seconds / 60));
-            $this->notify("تعداد دفعات تغییر وضعیت این تیکت بیش از حد مجاز است. لطفاً {$minutes} دقیقه دیگر تلاش کنید.", 'error');
+        if (RateLimiter::tooManyAttempts($rateKey, 6)) {
+            $seconds = max(1, RateLimiter::availableIn($rateKey));
+            $this->notify("تغییر وضعیت تیکت بیش از حد تکرار شد. لطفاً {$seconds} ثانیه دیگر تلاش کنید.", 'error');
 
             return false;
         }
 
-        RateLimiter::hit($rateKey, 900);
+        RateLimiter::hit($rateKey, 60);
 
         return true;
     }
