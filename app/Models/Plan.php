@@ -37,6 +37,28 @@ class Plan extends Model
         ];
     }
 
+    public function getFeaturesAttribute(mixed $value): array
+    {
+        $configured = collect(config('saas.plans', []))->firstWhere('slug', $this->slug);
+
+        if (is_array($configured['features'] ?? null)) {
+            return $configured['features'];
+        }
+
+        if (is_array($value)) {
+            return $value;
+        }
+
+        return is_string($value) ? (json_decode($value, true) ?: []) : [];
+    }
+
+    public function getDescriptionAttribute(?string $value): ?string
+    {
+        $configured = collect(config('saas.plans', []))->firstWhere('slug', $this->slug);
+
+        return $configured['description'] ?? $value;
+    }
+
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);

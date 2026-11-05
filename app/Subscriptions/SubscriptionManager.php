@@ -49,11 +49,17 @@ final class SubscriptionManager
         $fallback = config('saas.plans.0', [
             'slug' => 'free',
             'name' => 'رایگان',
+            'description' => 'مناسب برای شروع، تست و ساخت اتوماسیون‌های شخصی',
             'monthly_price' => 0,
             'yearly_price' => 0,
             'max_monthly_runs' => 500,
             'max_active_workflows' => 2,
-            'features' => [],
+            'features' => [
+                '۵۰۰ اجرای ماهانه',
+                '۲ ورک‌فلو فعال همزمان',
+                'امکان ساخت تا ۱۰ ورک‌فلو',
+                'دسترسی به تمام نودها، ابزارها و ایجنت هوش مصنوعی',
+            ],
         ]);
 
         return Plan::query()->firstOrCreate(
