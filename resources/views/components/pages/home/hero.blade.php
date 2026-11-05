@@ -6,9 +6,9 @@
     ];
 
     $paths = [
-        ['d' => 'M110 175 L350 175', 'dur' => '2.4s', 'begin' => '0s'],
-        ['d' => 'M350 175 C500 175 520 55 690 55', 'dur' => '2.2s', 'begin' => '-0.8s'],
-        ['d' => 'M350 175 C500 175 520 295 690 295', 'dur' => '2.2s', 'begin' => '-1.6s'],
+        ['d' => 'M110 175 L400 175', 'dur' => '2.4s', 'begin' => '0.1s'],
+        ['d' => 'M400 175 C515 175 535 55 690 55', 'dur' => '2.2s', 'begin' => '0.8s'],
+        ['d' => 'M400 175 C515 175 535 295 690 295', 'dur' => '2.2s', 'begin' => '1.5s'],
     ];
 @endphp
 
@@ -62,7 +62,8 @@
 
                     @foreach ($paths as $path)
                         <path d="{{ $path['d'] }}" stroke="url(#hero-line)" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 9" class="hero-flow"/>
-                        <circle r="4" fill="var(--color-primary)" filter="url(#hero-glow)" class="hero-dot">
+                        <circle r="4" fill="var(--color-primary)" filter="url(#hero-glow)" opacity="0" class="hero-dot">
+                            <set attributeName="opacity" to="1" begin="{{ $path['begin'] }}" />
                             <animateMotion dur="{{ $path['dur'] }}" begin="{{ $path['begin'] }}" repeatCount="indefinite" path="{{ $path['d'] }}"/>
                         </circle>
                     @endforeach
