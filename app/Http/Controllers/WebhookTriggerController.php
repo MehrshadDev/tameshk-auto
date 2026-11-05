@@ -33,7 +33,7 @@ class WebhookTriggerController extends Controller
         [$workflow, $trigger, $payload] = $resolved;
 
         if (! Cache::get(WebhookTriggerNode::listeningKey($workflow->id))) {
-            return $this->fail(404, 'وبهوک تست در حال گوش دادن نیست. ابتدا در ویرایشگر روی دکمه «گوش دادن به رویداد تستی» کلیک کنید.');
+            return $this->fail(404, 'وب‌هوک تست در حال گوش دادن نیست. ابتدا در ویرایشگر روی دکمه «گوش دادن به رویداد تستی» کلیک کنید.');
         }
 
         Cache::put(WebhookTriggerNode::cacheKey($workflow->id), $payload, now()->addMinutes(2));
@@ -102,7 +102,7 @@ class WebhookTriggerController extends Controller
             ->values();
 
         if ($matchingNodes->count() > 1) {
-            return $this->fail(409, 'این آدرس سفارشی وبهوک در بیش از یک ورکفلو انتخاب شده است. لطفاً مسیر سفارشی را تغییر دهید.');
+            return $this->fail(409, 'این آدرس سفارشی وب‌هوک در بیش از یک ورکفلو انتخاب شده است. لطفاً مسیر سفارشی را تغییر دهید.');
         }
 
         $trigger = $matchingNodes->first();
@@ -118,11 +118,11 @@ class WebhookTriggerController extends Controller
         }
 
         if (! $workflow || ! $trigger) {
-            return $this->fail(404, 'وبهوک مورد نظر یافت نشد.');
+            return $this->fail(404, 'وب‌هوک مورد نظر یافت نشد.');
         }
 
         if ($requirePublished && (! $workflow->isPublished() || ! $workflow->is_active)) {
-            return $this->fail(404, 'این وبهوک فعال نیست. ورکفلو باید منتشر و فعال باشد.');
+            return $this->fail(404, 'این وب‌هوک فعال نیست. ورکفلو باید منتشر و فعال باشد.');
         }
 
         $pathError = WebhookTriggerNode::pathError($trigger->config['path'] ?? null, $workflow->id);
@@ -142,7 +142,7 @@ class WebhookTriggerController extends Controller
         $expectedMethod = strtoupper((string) ($config['http_method'] ?? 'POST'));
 
         if ($request->method() !== $expectedMethod) {
-            return $this->fail(405, "متد درخواست نامعتبر است. این وبهوک فقط متد $expectedMethod را می‌پذیرد.");
+            return $this->fail(405, "متد درخواست نامعتبر است. این وب‌هوک فقط متد $expectedMethod را می‌پذیرد.");
         }
 
         return $this->authorized($request, $workflow, $config) ? null : $this->fail(401, 'Unauthorized.');

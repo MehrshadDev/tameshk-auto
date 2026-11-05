@@ -55,7 +55,7 @@ class WebhookTriggerNode implements NodeContract, PublishableTriggerContract
             ->exists();
 
         if ($takenByToken) {
-            return 'این آدرس سفارشی وبهوک قبلاً انتخاب شده است و باید آن را تغییر دهید.';
+            return 'این آدرس سفارشی وب‌هوک قبلاً انتخاب شده است و باید آن را تغییر دهید.';
         }
 
         $takenByNode = Node::query()
@@ -66,7 +66,7 @@ class WebhookTriggerNode implements NodeContract, PublishableTriggerContract
             ->contains(fn (Node $node) => self::normalizePath($node->config['path'] ?? '') === $path);
 
         if ($takenByNode) {
-            return 'این آدرس سفارشی وبهوک قبلاً انتخاب شده است و باید آن را تغییر دهید.';
+            return 'این آدرس سفارشی وب‌هوک قبلاً انتخاب شده است و باید آن را تغییر دهید.';
         }
 
         return null;
@@ -188,7 +188,7 @@ class WebhookTriggerNode implements NodeContract, PublishableTriggerContract
         try {
             while (microtime(true) < $deadline) {
                 if (Cache::get($cancelKey)) {
-                    throw NodeExecutionException::because('انتظار برای دریافت وبهوک متوقف شد.');
+                    throw NodeExecutionException::because('انتظار برای دریافت وب‌هوک متوقف شد.');
                 }
 
                 $captured = Cache::pull($payloadKey);

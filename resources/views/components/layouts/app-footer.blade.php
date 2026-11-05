@@ -11,12 +11,8 @@
         </div>
 
         <nav aria-label="پیوندهای مرتبط" class="flex items-center gap-6 text-sm text-content-muted">
-            <a href="#" class="transition-colors hover:text-primary">
+            <a href="https://github.com/MehrshadDev/tameshk-auto" class="transition-colors hover:text-primary">
                 گیت‌هاب
-            </a>
-
-            <a href="#" class="transition-colors hover:text-primary">
-                لینکدین
             </a>
 
             <a href="{{ route('docs.index') }}" class="transition-colors hover:text-primary">

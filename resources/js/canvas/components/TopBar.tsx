@@ -29,7 +29,7 @@ export function TopBar({ backUrl }: TopBarProps) {
     const runningTrigger = nodes.find((n) => n.id === runningNodeId);
     const listeningText = runningTrigger
         ? isWebhookTrigger(runningTrigger.data.nodeType)
-            ? 'در انتظار دریافت وبهوک...'
+            ? 'در انتظار دریافت وب‌هوک...'
             : isTelegramTrigger(runningTrigger.data.nodeType)
                 ? 'در انتظار پیام تلگرام...'
                 : isGmailTrigger(runningTrigger.data.nodeType)

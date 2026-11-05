@@ -61,14 +61,14 @@ final class DocumentationRepository
                 'items' => [
                     [
                         'slug'        => 'core-triggers',
-                        'title'       => 'وبهوک، زمان‌بندی و چت عمومی',
+                        'title'       => 'وب‌هوک، زمان‌بندی و چت عمومی',
                         'description' => 'راهنمای کامل شروع‌کننده‌های پایه: اجرای دستی، زمان‌بندی (Cron)، دریافت Webhook و صفحه چت.',
                         'readingTime' => '۷ دقیقه',
                         'view'        => 'pages.docs.articles.core-triggers',
                         'toc'         => [
                             ['id' => 'manual-trigger', 'label' => 'شروع‌کننده دستی (Manual)'],
                             ['id' => 'schedule-trigger', 'label' => 'زمان‌بندی خودکار (Schedule)'],
-                            ['id' => 'webhook-trigger', 'label' => 'دریافت وبهوک (Webhook)'],
+                            ['id' => 'webhook-trigger', 'label' => 'دریافت وب‌هوک (Webhook)'],
                             ['id' => 'chat-trigger', 'label' => 'شروع‌کننده چت (On Chat Message)'],
                         ],
                     ],

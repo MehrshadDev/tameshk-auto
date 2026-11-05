@@ -34,7 +34,7 @@
         <p class="text-xs leading-6 text-content-muted">
             ورکفلوی
             <span class="wrap-break-word font-bold text-content-main">«{{ \Illuminate\Support\Str::limit($deletingName, 60) }}»</span>
-            حذف می‌شود و در صورت فعال بودن، وبهوک‌ها و زمان‌بندی‌های آن متوقف خواهد شد. آیا مطمئن هستید؟
+            حذف می‌شود و در صورت فعال بودن، وب‌هوک ها و زمان‌بندی‌های آن متوقف خواهد شد. آیا مطمئن هستید؟
         </p>
     </div>
 

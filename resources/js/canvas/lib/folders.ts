@@ -10,7 +10,7 @@ export const FOLDERS_CONFIG: Record<string, FolderItem> = {
     trigger: {
         id: 'trigger',
         title: 'شروع‌کننده‌ها',
-        description: 'شروع‌کننده‌های پایه‌ای سیستم، زمان‌بندی، چت و وبهوک',
+        description: 'شروع‌کننده‌های پایه‌ای سیستم، زمان‌بندی، چت و وب‌هوک',
         icon: 'player-play',
         iconClass: 'bg-emerald-500/10 text-emerald-500',
     },

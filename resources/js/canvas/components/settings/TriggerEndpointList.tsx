@@ -36,7 +36,7 @@ export function TriggerEndpointList({ nodeType, config }: TriggerEndpointListPro
     const copy = async (url: string) => {
         try {
             await navigator.clipboard.writeText(url);
-            addToast('آدرس وبهوک کپی شد.', 'success', 2000);
+            addToast('آدرس وب‌هوک کپی شد.', 'success', 2000);
         } catch {
             addToast('کپی آدرس انجام نشد.', 'error', 3000);
         }
@@ -47,7 +47,7 @@ export function TriggerEndpointList({ nodeType, config }: TriggerEndpointListPro
             <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-xs font-bold text-primary">
                     <Icon name="link" className="size-4" />
-                    <span>{hasBothModes ? 'آدرس‌های وبهوک (Webhook URLs)' : currentEndpoint.label}</span>
+                    <span>{hasBothModes ? 'آدرس‌های وب‌هوک (Webhook URLs)' : currentEndpoint.label}</span>
                 </span>
 
                 {hasBothModes ? (

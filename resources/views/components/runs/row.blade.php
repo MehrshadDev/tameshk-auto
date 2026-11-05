@@ -44,7 +44,7 @@
     $triggerLabel = match ($run->trigger_type) {
         'single_node' => 'تست تک‌مرحله',
         'stream' => 'اجرای تستی',
-        'manual' => 'اجرای دستی / وبهوک',
+        'manual' => 'اجرای دستی / وب‌هوک',
         default => $run->trigger_type ?: 'اجرای خودکار',
     };
 

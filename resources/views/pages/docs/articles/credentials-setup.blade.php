@@ -47,6 +47,6 @@
     <ul class="list-disc space-y-2 pr-5 text-content-muted">
         <li><strong class="text-content-main">Google Gemini:</strong> کلید API را از <code>aistudio.google.com</code> دریافت کنید.</li>
         <li><strong class="text-content-main">OpenAI / DeepSeek / Groq / Anthropic / OpenRouter:</strong> کلید API اختصاصی را از پنل توسعه‌دهندگان هر سرویس دریافت و ثبت کنید. در اعتبارنامه OpenAI امکان تغییر <code>Base URL</code> نیز وجود دارد.</li>
-        <li><strong class="text-content-main">توکن Bearer و Basic Auth:</strong> برای محافظت از وبهوک‌های ورودی در نود <code>Webhook Trigger</code> استفاده می‌شوند.</li>
+        <li><strong class="text-content-main">توکن Bearer و Basic Auth:</strong> برای محافظت از وب‌هوک های ورودی در نود <code>Webhook Trigger</code> استفاده می‌شوند.</li>
     </ul>
 </section>

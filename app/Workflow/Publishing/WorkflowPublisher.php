@@ -130,7 +130,7 @@ final class WorkflowPublisher
         } catch (Throwable $e) {
             report($e);
 
-            throw WorkflowPublishException::because('ثبت وبهوک با یک خطای غیرمنتظره روبه‌رو شد.');
+            throw WorkflowPublishException::because('ثبت وب‌هوک با یک خطای غیرمنتظره روبه‌رو شد.');
         }
     }
 
@@ -218,7 +218,7 @@ final class WorkflowPublisher
 
         if ($taken) {
             throw WorkflowPublishException::because(
-                'این ربات هم‌اکنون در ورکفلوی منتشرشده‌ی دیگری استفاده می‌شود. هر ربات تلگرام فقط یک وبهوک می‌تواند داشته باشد.'
+                'این ربات هم‌اکنون در ورکفلوی منتشرشده‌ی دیگری استفاده می‌شود. هر ربات تلگرام فقط یک وب‌هوک می‌تواند داشته باشد.'
             );
         }
     }
