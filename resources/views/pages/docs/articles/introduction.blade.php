@@ -1,14 +1,14 @@
 <section id="what-is-tameshk" class="scroll-mt-24 space-y-3">
-    <h2 class="text-lg font-extrabold text-content-main">تمشک چیست؟</h2>
+    <h2 class="text-lg font-extrabold text-content-main">تمشک فلو چیست؟</h2>
     <p class="text-content-muted">
-        <strong class="text-content-main">تمشک (Tameshk)</strong> یک پلتفرم بصری برای اتوماسیون گردش‌کار و ساخت ایجنت‌های هوشمند است. با تمشک می‌توانید بدون درگیری با کدنویسی‌های پیچیده، سرویس‌های مختلف مثل <strong class="text-content-main">تلگرام، جیمیل، گوگل شیت، وب‌سرویس‌ها (HTTP) و مدل‌های هوش مصنوعی</strong> (OpenAI، Gemini، Claude، DeepSeek، Groq و OpenRouter) را به یکدیگر متصل کنید.
+        <strong class="text-content-main">تمشک فلو (Tameshk Flow)</strong> یک پلتفرم بصری برای اتوماسیون گردش‌کار و ساخت ایجنت‌های هوشمند است. با تمشک فلو می‌توانید بدون درگیری با کدنویسی‌های پیچیده، سرویس‌های مختلف مثل <strong class="text-content-main">تلگرام، جیمیل، گوگل شیت، وب‌سرویس‌ها (HTTP) و مدل‌های هوش مصنوعی</strong> (OpenAI، Gemini، Claude، DeepSeek، Groq و OpenRouter) را به یکدیگر متصل کنید.
     </p>
 </section>
 
 <section id="core-concepts" class="scroll-mt-24 space-y-3 pt-4">
     <h2 class="text-lg font-extrabold text-content-main">اجزای اصلی یک ورکفلو</h2>
     <p class="text-content-muted">
-        هر ورکفلو در تمشک از دو بخش اصلی تشکیل شده است:
+        هر ورکفلو در تمشک فلو از دو بخش اصلی تشکیل شده است:
     </p>
     <ul class="list-disc space-y-2 pr-5 text-content-muted">
         <li>
@@ -21,7 +21,7 @@
 </section>
 
 <section id="node-categories" class="scroll-mt-24 space-y-4 pt-4">
-    <h2 class="text-lg font-extrabold text-content-main">دسته‌بندی نودها در تمشک</h2>
+    <h2 class="text-lg font-extrabold text-content-main">دسته‌بندی نودها در تمشک فلو</h2>
 
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div class="rounded-2xl border border-line-border bg-surface-base/60 p-4">
@@ -32,7 +32,7 @@
                 <h3 class="text-xs font-extrabold text-content-main">۱. شروع‌کننده‌ها (Triggers)</h3>
             </div>
             <p class="mt-2 text-xs leading-6 text-content-muted">
-                نقطه آغاز هر ورکفلو هستند؛ مثل دریافت پیام در تلگرام، دریافت ایمیل در جیمیل، تغییر ردیف در گوگل شیت، زمان‌بندی یا وب‌هوک. هر ورکفلو حداکثر یک شروع‌کننده دارد.
+                نقطه آغاز هر ورکفلو هستند؛ مثل دریافت پیام در تلگرام، دریافت ایمیل در جیمیل، تغییر ردیف در گوگل شیت، زمان‌بندی یا وبهوک. هر ورکفلو حداکثر یک شروع‌کننده دارد.
             </p>
         </div>
 
@@ -80,6 +80,6 @@
         هنگام طراحی در ویرایشگر، می‌توانید هر نود را به صورت تکی یا کل ورکفلو را با دکمه <strong class="text-emerald-500">«تست اجرا»</strong> آزمایش کنید و ورودی و خروجی هر مرحله را ببینید.
     </p>
     <x-docs.callout type="info" title="اجرای خودکار در پس‌زمینه">
-        پس از اطمینان از درستی ورکفلو، با کلیک روی دکمه <strong>«انتشار» (Publish)</strong> در نوار بالای ویرایشگر، وب‌هوک ها و زمان‌بندی‌ها فعال می‌شوند و ورکفلو بدون نیاز به باز بودن مرورگر، به صورت ۲۴ ساعته کار می‌کند.
+        پس از اطمینان از درستی ورکفلو، با کلیک روی دکمه <strong>«انتشار» (Publish)</strong> در نوار بالای ویرایشگر، وبهوک‌ها و زمان‌بندی‌ها فعال می‌شوند و ورکفلو بدون نیاز به باز بودن مرورگر، به صورت ۲۴ ساعته کار می‌کند.
     </x-docs.callout>
 </section>

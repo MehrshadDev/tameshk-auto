@@ -11,7 +11,7 @@
         </div>
 
         <nav aria-label="پیوندهای مرتبط" class="flex items-center gap-6 text-sm text-content-muted">
-            <a href="https://github.com/MehrshadDev/tameshk-auto" class="transition-colors hover:text-primary">
+            <a href="https://github.com/MehrshadDev/tameshk-flow" class="transition-colors hover:text-primary">
                 گیت‌هاب
             </a>
 
@@ -23,7 +23,7 @@
 
     <div class="border-t border-line-border/70 bg-surface-card/40 py-4">
         <p class="text-center text-xs text-content-muted">
-            © {{ date('Y') }} تمشک — تمامی حقوق محفوظ است.
+            © {{ date('Y') }} تمشک فلو — تمامی حقوق محفوظ است.
         </p>
     </div>
 </footer>

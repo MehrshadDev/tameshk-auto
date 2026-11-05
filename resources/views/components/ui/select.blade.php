@@ -4,6 +4,7 @@
     'wireModel' => '',
     'placeholder' => 'انتخاب کنید',
     'searchable' => true,
+    'fullWidth' => false,
 ])
 
 @php
@@ -16,7 +17,7 @@
      @keydown.escape.window="open = false"
      @click.outside="open = false"
      :class="open && 'z-50'"
-     class="relative w-full shrink-0 select-none sm:w-52">
+     class="relative w-full shrink-0 select-none {{ $fullWidth ? '' : 'sm:w-52' }}">
 
     <button type="button"
             @click="open = !open; if (open) { query = ''; $nextTick(() => $refs.searchInput?.focus()); }"

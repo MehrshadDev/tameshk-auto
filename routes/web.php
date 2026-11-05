@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use App\Http\Controllers\DocsController;
+use App\Http\Controllers\TicketController;
 
 Route::get('/', [HomeController::class, 'index'])
     ->name('home');
@@ -60,6 +61,10 @@ Route::middleware('auth')
             ->name('runs.index');
         Route::view('/credentials', 'pages.credentials.index')
             ->name('credentials.index');
+        Route::get('/tickets', [TicketController::class, 'index'])
+            ->name('tickets.index');
+        Route::get('/tickets/{ticket:public_id}', [TicketController::class, 'show'])
+            ->name('tickets.show');
 
         Route::get('/billing', [BillingController::class, 'index'])
             ->name('billing.index');

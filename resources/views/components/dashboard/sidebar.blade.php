@@ -22,6 +22,11 @@
     $usagePercent = ($maxWorkflows && $maxWorkflows > 0)
         ? min(100, (int) round(($totalWorkflows / $maxWorkflows) * 100))
         : 0;
+    $ticketsCount = $user
+        ? ($user->isAdmin()
+            ? \App\Models\Ticket::query()->whereIn('status', ['open', 'customer_reply'])->count()
+            : $user->tickets()->count())
+        : 0;
 @endphp
 
 <div x-show="sidebarOpen"
@@ -123,6 +128,14 @@
                 اشتراک و صورتحساب
             </x-dashboard.sidebar-link>
         @endif
+
+        <x-dashboard.sidebar-link
+            icon="ticket"
+            :href="route('app.tickets.index')"
+            :active="request()->routeIs('app.tickets.*')"
+            :count="$ticketsCount > 0 ? $ticketsCount : null">
+            پشتیبانی و تیکت‌ها
+        </x-dashboard.sidebar-link>
 
         <x-dashboard.sidebar-link
             icon="file-text"

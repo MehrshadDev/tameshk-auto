@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Support\AvatarStorage;
-use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -16,7 +15,6 @@ use Illuminate\Notifications\Notifiable;
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
     protected function casts(): array
@@ -32,6 +30,13 @@ class User extends Authenticatable
     public function avatarUrl(): ?string
     {
         return AvatarStorage::url($this->avatar);
+    }
+
+    public function isAdmin(): bool
+    {
+        $admins = config('tickets.admin_emails', []);
+
+        return in_array(strtolower(trim((string) $this->email)), $admins, true);
     }
 
     public function workflows(): HasMany
@@ -59,5 +64,10 @@ class User extends Authenticatable
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
     }
 }
